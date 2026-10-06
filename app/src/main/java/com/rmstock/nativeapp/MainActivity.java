@@ -69,8 +69,103 @@ public class MainActivity extends Activity {
 
     private void clear(String head){content.removeAllViews();add(title(head));TextView r=new TextView(this);r.setText("Role: "+role+"   •   Offline Native Android");r.setPadding(0,0,0,dp(8));content.addView(r);}
  private boolean admin(){return true;}
- private void showDashboard(){clear("RM Stock — Dashboard");try{List<JSONObject> rms=db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null);add(new TextView(this){{setText("Raw Materials: "+rms.size()+"   Products: "+db.rows("SELECT * FROM products",null).size());setTextSize(17);}});for(JSONObject r:rms){LinearLayout x=row();TextView a=new TextView(this);a.setText(r.getString("code")+"  "+r.getString("name"));a.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));TextView q=new TextView(this);q.setText("Opening "+fmt(r.getDouble("opening"))+" "+r.getString("uom"));x.addView(a);x.addView(q);content.addView(x);}TextView owner=new TextView(this);owner.setText("Personal-use mode: single Owner/Admin — full access");owner.setPadding(0,dp(12),0,0);add(owner);}catch(Exception e){error(e);}}
- private void showMaster(){clear("Master Data — Dynamic Add / Edit");Button rm=btn("RM Master — Add / Edit");rm.setOnClickListener(v->showRmMaster());add(rm);Button p=btn("Product Master — Add / Edit");p.setOnClickListener(v->showProductMaster());add(p);TextView n=new TextView(this);n.setText("Product Code/Name changes are migrated through batch references; new Products automatically receive recipe quantity 0 for every RM.");n.setPadding(0,dp(12),0,0);add(n);}
+ private void showDashboard(){
+    clear("RM Stock Dashboard");
+    try{
+        int rmCount=db.rows("SELECT * FROM rms",null).size();
+        int productCount=db.rows("SELECT * FROM products",null).size();
+        int receiveCount=db.rows("SELECT * FROM receives",null).size();
+        int batchCount=db.rows("SELECT * FROM batches",null).size();
+
+        LinearLayout stats=new LinearLayout(this);
+        stats.setOrientation(LinearLayout.VERTICAL);
+        stats.setPadding(0,dp(4),0,dp(12));
+
+        addDashCard(stats,"RAW MATERIALS",String.valueOf(rmCount));
+        addDashCard(stats,"PRODUCTS",String.valueOf(productCount));
+        addDashCard(stats,"DAILY ENTRIES",String.valueOf(receiveCount));
+        addDashCard(stats,"BATCHES",String.valueOf(batchCount));
+
+        content.addView(stats);
+
+        TextView section=title("Raw Material Stock");
+        section.setTextSize(18);
+        section.setPadding(0,dp(8),0,dp(8));
+        content.addView(section);
+
+        List<JSONObject> rms=db.rows(
+            "SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null);
+
+        if(rms.size()==0){
+            TextView empty=new TextView(this);
+            empty.setText("No raw materials added yet.");
+            empty.setTextSize(14);
+            empty.setTextColor(Color.DKGRAY);
+            empty.setPadding(dp(4),dp(12),dp(4),dp(12));
+            content.addView(empty);
+        }else{
+            for(JSONObject r:rms){
+                LinearLayout card=row();
+                card.setPadding(dp(14),dp(12),dp(14),dp(12));
+                card.setBackgroundColor(Color.WHITE);
+
+                TextView info=new TextView(this);
+                info.setText(r.getString("code")+"  •  "+r.getString("name"));
+                info.setTextSize(15);
+                info.setTypeface(null,Typeface.BOLD);
+                info.setTextColor(Color.rgb(20,55,95));
+                info.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
+
+                TextView qty=new TextView(this);
+                qty.setText(fmt(r.getDouble("opening"))+" "+r.getString("uom"));
+                qty.setTextSize(14);
+                qty.setTextColor(Color.DKGRAY);
+
+                card.addView(info);
+                card.addView(qty);
+                content.addView(card);
+
+                Space sp=new Space(this);
+                content.addView(sp,new LinearLayout.LayoutParams(1,dp(6)));
+            }
+        }
+
+        TextView owner=new TextView(this);
+        owner.setText("Owner / Admin • Full offline access");
+        owner.setTextSize(12);
+        owner.setTextColor(Color.DKGRAY);
+        owner.setPadding(0,dp(14),0,dp(10));
+        content.addView(owner);
+
+    }catch(Exception e){error(e);}
+}
+
+private void addDashCard(LinearLayout parent,String label,String value){
+    LinearLayout card=new LinearLayout(this);
+    card.setOrientation(LinearLayout.VERTICAL);
+    card.setPadding(dp(16),dp(12),dp(16),dp(12));
+    card.setBackgroundColor(Color.WHITE);
+
+    TextView a=new TextView(this);
+    a.setText(label);
+    a.setTextSize(11);
+    a.setTextColor(Color.DKGRAY);
+
+    TextView b=new TextView(this);
+    b.setText(value);
+    b.setTextSize(24);
+    b.setTypeface(null,Typeface.BOLD);
+    b.setTextColor(Color.rgb(20,55,95));
+
+    card.addView(a);
+    card.addView(b);
+    parent.addView(card,new LinearLayout.LayoutParams(-1,dp(76)));
+
+    Space sp=new Space(this);
+    parent.addView(sp,new LinearLayout.LayoutParams(1,dp(7)));
+}
+
+private void showMaster(){clear("Master Data — Dynamic Add / Edit");Button rm=btn("RM Master — Add / Edit");rm.setOnClickListener(v->showRmMaster());add(rm);Button p=btn("Product Master — Add / Edit");p.setOnClickListener(v->showProductMaster());add(p);TextView n=new TextView(this);n.setText("Product Code/Name changes are migrated through batch references; new Products automatically receive recipe quantity 0 for every RM.");n.setPadding(0,dp(12),0,0);add(n);}
  private void showRmMaster(){clear("RM Master");if(admin()){LinearLayout addrow=row();EditText c=edit("New RM Code"),n=edit("Name"),u=edit("UoM");addrow.addView(c,new LinearLayout.LayoutParams(0,dp(52),1));addrow.addView(n,new LinearLayout.LayoutParams(0,dp(52),2));addrow.addView(u,new LinearLayout.LayoutParams(0,dp(52),1));Button a=btn("Add");addrow.addView(a);a.setOnClickListener(v->{try{String code=c.getText().toString().trim(),name=n.getText().toString().trim(),uom=u.getText().toString().trim();if(code.isEmpty()||name.isEmpty())throw new Exception("Code and name required");if(db.one("SELECT code FROM rms WHERE code=?",new String[]{code})!=null)throw new Exception("Duplicate RM Code");ContentValues z=new ContentValues();z.put("code",code);z.put("name",name);z.put("uom",uom.isEmpty()?"kg":uom);z.put("opening",0);db.insert("rms",z);for(JSONObject p:db.rows("SELECT code FROM products",null)){ContentValues q=new ContentValues();q.put("rm_code",code);q.put("product_code",p.getInt("code"));q.put("qty",0);db.insert("recipes",q);}showRmMaster();}catch(Exception e){error(e);}});add(addrow);}try{for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){LinearLayout x=row();EditText code=edit("Code"),name=edit("Name"),uom=edit("UoM"),open=edit("Opening");code.setText(r.getString("code"));name.setText(r.getString("name"));uom.setText(r.getString("uom"));open.setText(fmt(r.getDouble("opening")));x.addView(code,new LinearLayout.LayoutParams(0,dp(52),1));x.addView(name,new LinearLayout.LayoutParams(0,dp(52),2));x.addView(uom,new LinearLayout.LayoutParams(0,dp(52),1));x.addView(open,new LinearLayout.LayoutParams(0,dp(52),1));Button save=btn("Save");x.addView(save);String old=r.getString("code");save.setOnClickListener(v->saveRm(old,code,name,uom,open));add(x);}}catch(Exception e){error(e);}}
  private void saveRm(String old,EditText c,EditText n,EditText u,EditText o){try{String nc=c.getText().toString().trim(),nn=n.getText().toString().trim(),nu=u.getText().toString().trim();if(nc.isEmpty()||nn.isEmpty())throw new Exception("Invalid RM");if(!nc.equals(old)&&db.one("SELECT code FROM rms WHERE code=?",new String[]{nc})!=null)throw new Exception("Duplicate RM Code");db.getWritableDatabase().beginTransaction();ContentValues v=new ContentValues();v.put("code",nc);v.put("name",nn);v.put("uom",nu.isEmpty()?"kg":nu);v.put("opening",Double.parseDouble(o.getText().toString()));db.update("rms",v,"code=?",new String[]{old});if(!nc.equals(old)){ContentValues q=new ContentValues();q.put("rm_code",nc);db.update("recipes",q,"rm_code=?",new String[]{old});ContentValues rr=new ContentValues();rr.put("rm_code",nc);db.update("receives",rr,"rm_code=?",new String[]{old});ContentValues rl=new ContentValues();rl.put("rm_code",nc);db.update("mixing2_batch_log",rl,"rm_code=?",new String[]{old});}db.getWritableDatabase().setTransactionSuccessful();db.getWritableDatabase().endTransaction();showRmMaster();}catch(Exception e){try{db.getWritableDatabase().endTransaction();}catch(Exception ignored){}error(e);}}
  private void showProductMaster(){clear("Product Master — Dynamic Add / Edit");if(admin()){LinearLayout x=row();EditText c=edit("New Product Code"),n=edit("New Product Name");x.addView(c,new LinearLayout.LayoutParams(0,dp(52),1));x.addView(n,new LinearLayout.LayoutParams(0,dp(52),2));Button a=btn("Add Product");x.addView(a);a.setOnClickListener(v->{try{int code=Integer.parseInt(c.getText().toString().trim());String name=n.getText().toString().trim();if(name.isEmpty())throw new Exception("Name required");if(db.one("SELECT code FROM products WHERE code=?",new String[]{String.valueOf(code)})!=null)throw new Exception("Duplicate Product Code");ContentValues p=new ContentValues();p.put("code",code);p.put("name",name);db.insert("products",p);for(JSONObject r:db.rows("SELECT code FROM rms",null)){ContentValues q=new ContentValues();q.put("rm_code",r.getString("code"));q.put("product_code",code);q.put("qty",0);db.insert("recipes",q);}showProductMaster();}catch(Exception e){error(e);}});add(x);}try{for(JSONObject p:db.rows("SELECT * FROM products ORDER BY code",null)){LinearLayout x=row();EditText c=edit("Code"),n=edit("Name");c.setText(p.getString("code"));n.setText(p.getString("name"));x.addView(c,new LinearLayout.LayoutParams(0,dp(52),1));x.addView(n,new LinearLayout.LayoutParams(0,dp(52),2));Button s=btn("Save");x.addView(s);int old=p.getInt("code");s.setOnClickListener(v->saveProduct(old,c,n));add(x);}}catch(Exception e){error(e);}}
