@@ -14,12 +14,12 @@ public class MainActivity extends AppCompatActivity {
         db.setSetting("role","Owner/Admin");
         build();
         showDashboard();
-    }catch(Exception e){
+    }catch(Throwable e){
         showStartupError(e);
     }
 }
 
-private void showStartupError(Exception e){
+private void showStartupError(Throwable e){
     StringWriter sw=new StringWriter();
     e.printStackTrace(new PrintWriter(sw));
     TextView t=new TextView(this);
