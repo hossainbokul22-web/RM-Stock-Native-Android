@@ -175,7 +175,16 @@ private void showMaster(){clear("Master Data — Dynamic Add / Edit");Button rm=
 EditText d=edit("Date YYYY-MM-DD"),q=edit("Quantity"),v=edit("Voucher No"),note=edit("Note");d.setText(today());
 Spinner rm=new Spinner(this);ArrayList<String>a=new ArrayList<>();for(JSONObject x:db.rows("SELECT code||' — '||name AS label FROM rms ORDER BY code",null))a.add(x.getString("label"));rm.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,a));
 add(d);add(rm);add(v);add(q);add(note);
-Button save=btn("Save Receive");save.setOnClickListener(x->{try{
+d.setTextSize(15);q.setTextSize(15);v.setTextSize(15);note.setTextSize(15);
+d.setPadding(dp(12),dp(12),dp(12),dp(12));
+q.setPadding(dp(12),dp(12),dp(12),dp(12));
+v.setPadding(dp(12),dp(12),dp(12),dp(12));
+note.setPadding(dp(12),dp(12),dp(12),dp(12));
+rm.setPadding(dp(8),dp(8),dp(8),dp(8));
+Button save=btn("Save Receive");
+save.setTextSize(15);
+save.setAllCaps(false);
+save.setPadding(dp(12),dp(10),dp(12),dp(10));save.setOnClickListener(x->{try{
 String label=String.valueOf(rm.getSelectedItem());if(label==null||label.equals("null"))throw new Exception("RM required");
 String code=label.split(" — ",2)[0].trim();ContentValues z=new ContentValues();z.put("date",d.getText().toString().trim());z.put("rm_code",code);z.put("qty",num(q.getText().toString()));z.put("voucher_no",v.getText().toString().trim());z.put("note",note.getText().toString().trim());z.put("source","manual");db.insert("receives",z);toast("Receive saved ✔");showDaily();
 }catch(Exception e){error(e);}});add(save);
@@ -183,8 +192,15 @@ add(tv("Recent Entries",1));
 for(JSONObject r:db.rows("SELECT * FROM receives ORDER BY id DESC",null)){LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.VERTICAL);row.setPadding(dp(6),dp(8),dp(6),dp(8));
 row.addView(tv("ID: "+r.optString("id")+"   "+r.optString("date")+"   RM: "+r.optString("rm_code")+"   Qty: "+fmt(r.optDouble("qty"))+"   Voucher: "+r.optString("voucher_no"),1));
 row.addView(tv(r.optString("note"),1));
-Button editB=btn("Edit");editB.setOnClickListener(xx->{d.setText(r.optString("date"));q.setText(fmt(r.optDouble("qty")));v.setText(r.optString("voucher_no"));note.setText(r.optString("note"));String target=r.optString("rm_code");for(int i=0;i<a.size();i++)if(a.get(i).startsWith(target+" — ")){rm.setSelection(i);break;}save.setText("Update Receive #"+r.optString("id"));save.setOnClickListener(uu->{try{ContentValues z=new ContentValues();z.put("date",d.getText().toString().trim());z.put("rm_code",String.valueOf(rm.getSelectedItem()).split(" — ",2)[0].trim());z.put("qty",num(q.getText().toString()));z.put("voucher_no",v.getText().toString().trim());z.put("note",note.getText().toString().trim());int n=db.getWritableDatabase().update("receives",z,"id=?",new String[]{r.optString("id")});if(n!=1)throw new Exception("Update failed");toast("Receive updated ✔");showDaily();}catch(Exception e){error(e);}});});
-row.addView(editB);add(row);}
+Button editB=btn("Edit");
+editB.setTextSize(14);
+editB.setAllCaps(false);editB.setOnClickListener(xx->{d.setText(r.optString("date"));q.setText(fmt(r.optDouble("qty")));v.setText(r.optString("voucher_no"));note.setText(r.optString("note"));String target=r.optString("rm_code");for(int i=0;i<a.size();i++)if(a.get(i).startsWith(target+" — ")){rm.setSelection(i);break;}save.setText("Update Receive #"+r.optString("id"));save.setOnClickListener(uu->{try{ContentValues z=new ContentValues();z.put("date",d.getText().toString().trim());z.put("rm_code",String.valueOf(rm.getSelectedItem()).split(" — ",2)[0].trim());z.put("qty",num(q.getText().toString()));z.put("voucher_no",v.getText().toString().trim());z.put("note",note.getText().toString().trim());int n=db.getWritableDatabase().update("receives",z,"id=?",new String[]{r.optString("id")});if(n!=1)throw new Exception("Update failed");toast("Receive updated ✔");showDaily();}catch(Exception e){error(e);}});});
+row.setPadding(dp(12),dp(10),dp(12),dp(10));
+row.setBackgroundColor(Color.WHITE);
+row.addView(editB);
+add(row);
+Space rowSpace=new Space(this);
+content.addView(rowSpace,new LinearLayout.LayoutParams(1,dp(6)));}
 }catch(Exception e){error(e);}}
 private void refreshDailyList(){showDaily();}
  private void editReceive(JSONObject r){try{LinearLayout b=new LinearLayout(this);b.setOrientation(LinearLayout.VERTICAL);EditText d=edit("Date"),q=edit("Quantity"),v=edit("Voucher No"),n=edit("Note");d.setText(r.optString("date"));q.setText(fmt(r.optDouble("qty")));v.setText(r.optString("voucher_no"));n.setText(r.optString("note"));Spinner rm=new Spinner(this);ArrayList<String>a=new ArrayList<>();int sel=0,i=0;for(JSONObject x:db.rows("SELECT code||' — '||name AS label FROM rms ORDER BY CAST(code AS INTEGER)",null)){a.add(x.getString("label"));if(x.getString("code").equals(r.optString("rm_code")))sel=i;i++;}rm.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,a));rm.setSelection(sel);b.addView(d);b.addView(rm);b.addView(q);b.addView(v);b.addView(n);new AlertDialog.Builder(this).setTitle("Edit Receive").setView(b).setNegativeButton("Cancel",null).setPositiveButton("Save",(x,w)->{try{double amount=num(q.getText().toString());if(amount<=0)throw new Exception("Quantity required");String code=String.valueOf(rm.getSelectedItem()).split(" — ")[0];ContentValues z=new ContentValues();z.put("date",d.getText().toString().trim());z.put("rm_code",code);z.put("qty",amount);z.put("voucher_no",v.getText().toString());z.put("note",n.getText().toString());db.update("receives",z,"id=?",new String[]{r.getString("id")});toast("Receive updated ✔");showDaily();}catch(Exception e){error(e);}}).show();}catch(Exception e){error(e);}}
