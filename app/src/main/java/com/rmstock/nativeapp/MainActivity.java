@@ -8,8 +8,66 @@ public class MainActivity extends Activity {
  private StockDb db; private LinearLayout root,content; private Uri photoUri; private static final int CAM=77,PHOTO=78; private final Handler main=new Handler(Looper.getMainLooper()); private final String role="Owner/Admin";
  private File pendingPdf; private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);} private TextView title(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(22);t.setTypeface(null,1);t.setPadding(dp(4),dp(12),dp(4),dp(10));return t;} private Button btn(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);return b;} private EditText edit(String hint){EditText e=new EditText(this);e.setHint(hint);e.setSingleLine(true);e.setPadding(dp(10),dp(4),dp(10),dp(4));return e;} private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);l.setPadding(0,dp(3),0,dp(3));return l;} private void add(View v){content.addView(v,new LinearLayout.LayoutParams(-1,-2));}
  @Override public void onCreate(Bundle b){super.onCreate(b);db=new StockDb(this);db.setSetting("role","Owner/Admin");build();showDashboard();}
- private void build(){root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(12),dp(10),dp(12),dp(12)); ScrollView sv=new ScrollView(this);content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);sv.addView(content);root.addView(sv,new LinearLayout.LayoutParams(-1,0,1)); LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);String[] ns={"Dashboard","Daily Entry","Batch","Reports","Master","Recipe","Custom","AI"};for(String n:ns){Button b=btn(n);b.setTextSize(11);b.setOnClickListener(v->{if(n.equals("Dashboard"))showDashboard();else if(n.equals("Daily Entry"))showDaily();else if(n.equals("Batch"))showBatch();else if(n.equals("Reports"))showReports();else if(n.equals("Master"))showMaster();else if(n.equals("Recipe"))showRecipe();else if(n.equals("Custom"))showCustom();else showAI();});nav.addView(b,new LinearLayout.LayoutParams(0,dp(52),1));}root.addView(nav);setContentView(root);}
- private void clear(String head){content.removeAllViews();add(title(head));TextView r=new TextView(this);r.setText("Role: "+role+"   •   Offline Native Android");r.setPadding(0,0,0,dp(8));content.addView(r);}
+ private void build(){
+        root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(android.graphics.Color.rgb(245,247,250));
+
+        LinearLayout header=new LinearLayout(this);
+        header.setOrientation(LinearLayout.VERTICAL);
+        header.setPadding(dp(18),dp(14),dp(18),dp(12));
+        header.setBackgroundColor(android.graphics.Color.rgb(20,55,95));
+
+        TextView brand=new TextView(this);
+        brand.setText("RM STOCK");
+        brand.setTextColor(android.graphics.Color.WHITE);
+        brand.setTextSize(21);
+        brand.setTypeface(null,android.graphics.Typeface.BOLD);
+        header.addView(brand);
+
+        TextView sub=new TextView(this);
+        sub.setText("Inventory Management • Offline");
+        sub.setTextColor(android.graphics.Color.WHITE);
+        sub.setTextSize(12);
+        header.addView(sub);
+
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(72)));
+
+        ScrollView sv=new ScrollView(this);
+        content=new LinearLayout(this);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(dp(14),dp(14),dp(14),dp(14));
+        sv.addView(content);
+        root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
+
+        LinearLayout nav=new LinearLayout(this);
+        nav.setOrientation(LinearLayout.HORIZONTAL);
+        nav.setPadding(dp(4),dp(4),dp(4),dp(4));
+        nav.setBackgroundColor(android.graphics.Color.WHITE);
+
+        String[] ns={"Dashboard","Daily Entry","Batch","Reports","Master","Recipe","Custom","AI"};
+        for(String n:ns){
+            Button b=btn(n);
+            b.setTextSize(10);
+            b.setAllCaps(false);
+            b.setPadding(0,0,0,0);
+            b.setOnClickListener(v->{
+                if(n.equals("Dashboard"))showDashboard();
+                else if(n.equals("Daily Entry"))showDaily();
+                else if(n.equals("Batch"))showBatch();
+                else if(n.equals("Reports"))showReports();
+                else if(n.equals("Master"))showMaster();
+                else if(n.equals("Recipe"))showRecipe();
+                else if(n.equals("Custom"))showCustom();
+                else showAI();
+            });
+            nav.addView(b,new LinearLayout.LayoutParams(0,dp(54),1));
+        }
+        root.addView(nav);
+        setContentView(root);
+    }
+
+    private void clear(String head){content.removeAllViews();add(title(head));TextView r=new TextView(this);r.setText("Role: "+role+"   •   Offline Native Android");r.setPadding(0,0,0,dp(8));content.addView(r);}
  private boolean admin(){return true;}
  private void showDashboard(){clear("RM Stock — Dashboard");try{List<JSONObject> rms=db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null);add(new TextView(this){{setText("Raw Materials: "+rms.size()+"   Products: "+db.rows("SELECT * FROM products",null).size());setTextSize(17);}});for(JSONObject r:rms){LinearLayout x=row();TextView a=new TextView(this);a.setText(r.getString("code")+"  "+r.getString("name"));a.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));TextView q=new TextView(this);q.setText("Opening "+fmt(r.getDouble("opening"))+" "+r.getString("uom"));x.addView(a);x.addView(q);content.addView(x);}TextView owner=new TextView(this);owner.setText("Personal-use mode: single Owner/Admin — full access");owner.setPadding(0,dp(12),0,0);add(owner);}catch(Exception e){error(e);}}
  private void showMaster(){clear("Master Data — Dynamic Add / Edit");Button rm=btn("RM Master — Add / Edit");rm.setOnClickListener(v->showRmMaster());add(rm);Button p=btn("Product Master — Add / Edit");p.setOnClickListener(v->showProductMaster());add(p);TextView n=new TextView(this);n.setText("Product Code/Name changes are migrated through batch references; new Products automatically receive recipe quantity 0 for every RM.");n.setPadding(0,dp(12),0,0);add(n);}
