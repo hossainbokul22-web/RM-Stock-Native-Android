@@ -7,7 +7,30 @@ import android.Manifest;import android.app.*;import android.content.*;import and
 public class MainActivity extends AppCompatActivity {
  private StockDb db; private LinearLayout root,content; private Uri photoUri; private static final int CAM=77,PHOTO=78; private final Handler main=new Handler(Looper.getMainLooper()); private final String role="Owner/Admin";
  private File pendingPdf; private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);} private TextView title(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(22);t.setTypeface(null,1);t.setPadding(dp(4),dp(12),dp(4),dp(10));return t;} private Button btn(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);return b;} private EditText edit(String hint){EditText e=new EditText(this);e.setHint(hint);e.setSingleLine(true);e.setPadding(dp(10),dp(4),dp(10),dp(4));return e;} private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);l.setPadding(0,dp(3),0,dp(3));return l;} private void add(View v){content.addView(v,new LinearLayout.LayoutParams(-1,-2));}
- @Override public void onCreate(Bundle b){super.onCreate(b);db=new StockDb(this);db.setSetting("role","Owner/Admin");build();showDashboard();}
+ @Override public void onCreate(Bundle b){
+    super.onCreate(b);
+    try{
+        db=new StockDb(this);
+        db.setSetting("role","Owner/Admin");
+        build();
+        showDashboard();
+    }catch(Exception e){
+        showStartupError(e);
+    }
+}
+
+private void showStartupError(Exception e){
+    StringWriter sw=new StringWriter();
+    e.printStackTrace(new PrintWriter(sw));
+    TextView t=new TextView(this);
+    t.setText("RM Stock startup error\\n\\n"+sw.toString());
+    t.setTextSize(14);
+    t.setPadding(24,24,24,24);
+    t.setTextIsSelectable(true);
+    ScrollView s=new ScrollView(this);
+    s.addView(t);
+    setContentView(s);
+}
  private void build(){root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(12),dp(10),dp(12),dp(12)); ScrollView sv=new ScrollView(this);content=new LinearLayout(this);content.setOrientation(LinearLayout.VERTICAL);sv.addView(content);root.addView(sv,new LinearLayout.LayoutParams(-1,0,1)); LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);String[] ns={"Dashboard","Daily Entry","Batch","Reports","Master","Recipe","Custom","AI"};for(String n:ns){Button b=btn(n);b.setTextSize(11);b.setOnClickListener(v->{if(n.equals("Dashboard"))showDashboard();else if(n.equals("Daily Entry"))showDaily();else if(n.equals("Batch"))showBatch();else if(n.equals("Reports"))showReports();else if(n.equals("Master"))showMaster();else if(n.equals("Recipe"))showRecipe();else if(n.equals("Custom"))showCustom();else showAI();});nav.addView(b,new LinearLayout.LayoutParams(0,dp(52),1));}root.addView(nav);setContentView(root);}
  private void clear(String head){content.removeAllViews();add(title(head));TextView r=new TextView(this);r.setText("Role: "+role+"   •   Offline Native Android");r.setPadding(0,0,0,dp(8));content.addView(r);}
  private boolean admin(){return true;}
