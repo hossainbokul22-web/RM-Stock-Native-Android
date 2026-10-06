@@ -181,7 +181,23 @@ for(int i=0;i<content.getChildCount();i++){
     }
 }
 }
- private void showRecipe(){clear("Mixing-2 Recipe — Dynamic RM × Product");if(!admin())return;try{List<JSONObject> ps=db.rows("SELECT * FROM products ORDER BY code",null);HorizontalScrollView hs=new HorizontalScrollView(this);TableLayout t=new TableLayout(this);TableRow h=new TableRow(this);h.addView(tv("RM",1));for(JSONObject p:ps)h.addView(tv(p.getString("name"),1));t.addView(h);List<JSONObject> rms=db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null);for(JSONObject r:rms){TableRow tr=new TableRow(this);tr.addView(tv(r.getString("code")+" "+r.getString("name"),1));for(JSONObject p:ps){EditText e=edit("");JSONObject q=db.one("SELECT qty FROM recipes WHERE rm_code=? AND product_code=?",new String[]{r.getString("code"),p.getString("code")});e.setText(q==null?"0":fmt(q.getDouble("qty")));e.setTag(r.getString("code")+"|"+p.getString("code"));tr.addView(e,new TableRow.LayoutParams(dp(110),dp(52)));}t.addView(tr);}hs.addView(t);add(hs);Button save=btn("Save All Recipes");save.setOnClickListener(v->{for(int i=1;i<t.getChildCount();i++){TableRow tr=(TableRow)t.getChildAt(i);for(int j=1;j<tr.getChildCount();j++){EditText e=(EditText)tr.getChildAt(j);String[] k=e.getTag().toString().split("\\|");ContentValues z=new ContentValues();z.put("qty",num(e.getText().toString()));db.update("recipes",z,"rm_code=? AND product_code=?",new String[]{k[0],k[1]});}}toast("Recipe saved ✔");});add(save);}catch(Exception e){error(e);}}
+ private void showRecipe(){clear("Mixing-2 Recipe — Dynamic RM × Product");if(!admin())return;try{List<JSONObject> ps=db.rows("SELECT * FROM products ORDER BY code",null);HorizontalScrollView hs=new HorizontalScrollView(this);TableLayout t=new TableLayout(this);TableRow h=new TableRow(this);h.addView(tv("RM",1));for(JSONObject p:ps)h.addView(tv(p.getString("name"),1));t.addView(h);List<JSONObject> rms=db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null);for(JSONObject r:rms){TableRow tr=new TableRow(this);tr.addView(tv(r.getString("code")+" "+r.getString("name"),1));for(JSONObject p:ps){EditText e=edit("");JSONObject q=db.one("SELECT qty FROM recipes WHERE rm_code=? AND product_code=?",new String[]{r.getString("code"),p.getString("code")});e.setText(q==null?"0":fmt(q.getDouble("qty")));e.setTag(r.getString("code")+"|"+p.getString("code"));tr.addView(e,new TableRow.LayoutParams(dp(110),dp(52)));}t.addView(tr);}hs.addView(t);add(hs);Button save=btn("Save All Recipes");save.setOnClickListener(v->{for(int i=1;i<t.getChildCount();i++){TableRow tr=(TableRow)t.getChildAt(i);for(int j=1;j<tr.getChildCount();j++){EditText e=(EditText)tr.getChildAt(j);String[] k=e.getTag().toString().split("\\|");ContentValues z=new ContentValues();z.put("qty",num(e.getText().toString()));db.update("recipes",z,"rm_code=? AND product_code=?",new String[]{k[0],k[1]});}}toast("Recipe saved ✔");});add(save);
+
+for(int i=0;i<content.getChildCount();i++){
+    View vv=content.getChildAt(i);
+    if(vv instanceof Button){
+        Button bb=(Button)vv;
+        bb.setAllCaps(false);
+        bb.setTextSize(14);
+        bb.setPadding(dp(12),dp(10),dp(12),dp(10));
+    }else if(vv instanceof EditText){
+        EditText ee=(EditText)vv;
+        ee.setTextSize(15);
+        ee.setPadding(dp(12),dp(12),dp(12),dp(12));
+    }else if(vv instanceof Spinner){
+        vv.setPadding(dp(8),dp(8),dp(8),dp(8));
+    }
+}}catch(Exception e){error(e);}}
  private void showDaily(){clear("RM Daily Entry — Add / Edit");try{
 EditText d=edit("Date YYYY-MM-DD"),q=edit("Quantity"),v=edit("Voucher No"),note=edit("Note");d.setText(today());
 Spinner rm=new Spinner(this);ArrayList<String>a=new ArrayList<>();for(JSONObject x:db.rows("SELECT code||' — '||name AS label FROM rms ORDER BY code",null))a.add(x.getString("label"));rm.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,a));
