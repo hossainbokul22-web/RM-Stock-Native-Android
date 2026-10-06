@@ -207,8 +207,17 @@ private void refreshDailyList(){showDaily();}
  private void showBatch(){clear("Input Batch — Editable Batch Count");try{
   EditText d=edit("Production Date YYYY-MM-DD"),q=edit("Batch Count"),shift=edit("Shift 1/2/3");d.setText(today());
   Spinner p=new Spinner(this);ArrayList<String>a=new ArrayList<>();for(JSONObject x:db.rows("SELECT code||' — '||name AS label FROM products ORDER BY code",null))a.add(x.getString("label"));
-  p.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,a));add(d);add(p);add(shift);add(q);
-  Button save=btn("Save Batch Count");save.setOnClickListener(v->{try{String label=String.valueOf(p.getSelectedItem());if(label==null||label.equals("null"))throw new Exception("Product required");String code=label.split(" — ")[0];int sh=Integer.parseInt(shift.getText().toString().trim());int bc=batchCount(q.getText().toString());if(sh<1||sh>3)throw new Exception("Shift must be 1, 2 or 3");if(bc<0)throw new Exception("Batch Count cannot be negative");
+  p.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,a));
+add(d);add(p);add(shift);add(q);
+d.setTextSize(15);shift.setTextSize(15);q.setTextSize(15);
+d.setPadding(dp(12),dp(12),dp(12),dp(12));
+shift.setPadding(dp(12),dp(12),dp(12),dp(12));
+q.setPadding(dp(12),dp(12),dp(12),dp(12));
+p.setPadding(dp(8),dp(8),dp(8),dp(8));
+  Button save=btn("Save Batch Count");
+save.setTextSize(15);
+save.setAllCaps(false);
+save.setPadding(dp(12),dp(10),dp(12),dp(10));save.setOnClickListener(v->{try{String label=String.valueOf(p.getSelectedItem());if(label==null||label.equals("null"))throw new Exception("Product required");String code=label.split(" — ")[0];int sh=Integer.parseInt(shift.getText().toString().trim());int bc=batchCount(q.getText().toString());if(sh<1||sh>3)throw new Exception("Shift must be 1, 2 or 3");if(bc<0)throw new Exception("Batch Count cannot be negative");
     ContentValues z=new ContentValues();z.put("date",d.getText().toString().trim());z.put("product_code",Integer.parseInt(code));z.put("shift",sh);z.put("qty",bc);z.put("saved_at",new Date().toString());
     JSONObject existing=db.one("SELECT id FROM batches WHERE date=? AND product_code=? AND shift=?",new String[]{d.getText().toString().trim(),code,String.valueOf(sh)});long batchId;if(existing==null){batchId=db.insert("batches",z);}else{batchId=existing.getLong("id");db.update("batches",z,"id=?",new String[]{existing.getString("id")});}syncBatchLog(batchId,d.getText().toString().trim(),Integer.parseInt(code),sh,bc,new Date().toString());toast("Batch Count saved ✔");showBatch();
   }catch(Exception e){error(e);}});add(save);
