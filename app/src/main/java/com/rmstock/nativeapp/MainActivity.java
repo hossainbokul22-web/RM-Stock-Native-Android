@@ -9,14 +9,11 @@ public class MainActivity extends AppCompatActivity {
  private File pendingPdf; private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);} private TextView title(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(22);t.setTypeface(null,1);t.setPadding(dp(4),dp(12),dp(4),dp(10));return t;} private Button btn(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);return b;} private EditText edit(String hint){EditText e=new EditText(this);e.setHint(hint);e.setSingleLine(true);e.setPadding(dp(10),dp(4),dp(10),dp(4));return e;} private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);l.setPadding(0,dp(3),0,dp(3));return l;} private void add(View v){content.addView(v,new LinearLayout.LayoutParams(-1,-2));}
  @Override public void onCreate(Bundle b){
     super.onCreate(b);
-    try{
-        db=new StockDb(this);
-        db.setSetting("role","Owner/Admin");
-        build();
-        showDashboard();
-    }catch(Throwable e){
-        showStartupError(e);
-    }
+    TextView t=new TextView(this);
+    t.setText("RM STOCK NATIVE APP\\n\\nSTARTUP TEST OK");
+    t.setTextSize(24);
+    t.setPadding(40,40,40,40);
+    setContentView(t);
 }
 
 private void showStartupError(Throwable e){
