@@ -141,29 +141,37 @@ public class MainActivity extends Activity {
 }
 
 private void addDashCard(LinearLayout parent,String label,String value){
-    LinearLayout card=new LinearLayout(this);
-    card.setOrientation(LinearLayout.VERTICAL);
-    card.setPadding(dp(16),dp(12),dp(16),dp(12));
-    card.setBackgroundColor(Color.WHITE);
+        LinearLayout card=new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16),dp(16),dp(16),dp(16));
+        card.setBackgroundColor(Color.WHITE);
 
-    TextView a=new TextView(this);
-    a.setText(label);
-    a.setTextSize(11);
-    a.setTextColor(Color.DKGRAY);
+        android.graphics.drawable.GradientDrawable bg=new android.graphics.drawable.GradientDrawable();
+        bg.setColor(Color.WHITE);
+        bg.setCornerRadius(dp(16));
+        bg.setStroke(dp(1),Color.rgb(219,228,237));
+        card.setBackground(bg);
 
-    TextView b=new TextView(this);
-    b.setText(value);
-    b.setTextSize(24);
-    b.setTypeface(null,Typeface.BOLD);
-    b.setTextColor(Color.rgb(7,59,103));
+        TextView l=new TextView(this);
+        l.setText(label);
+        l.setTextSize(13);
+        l.setTextColor(Color.rgb(107,123,140));
 
-    card.addView(a);
-    card.addView(b);
-    parent.addView(card,new LinearLayout.LayoutParams(-1,dp(76)));
+        TextView v=new TextView(this);
+        v.setText(value);
+        v.setTextSize(25);
+        v.setTypeface(null,Typeface.BOLD);
+        v.setTextColor(Color.rgb(23,50,77));
+        v.setPadding(0,dp(7),0,0);
 
-    Space sp=new Space(this);
-    parent.addView(sp,new LinearLayout.LayoutParams(1,dp(7)));
-}
+        card.addView(l);
+        card.addView(v);
+
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(
+                0,dp(92),1f);
+        lp.setMargins(dp(7),dp(7),dp(7),dp(7));
+        parent.addView(card,lp);
+    }
 
 private void showMaster(){clear("Master Data — Dynamic Add / Edit");Button rm=btn("RM Master — Add / Edit");rm.setOnClickListener(v->showRmMaster());add(rm);Button p=btn("Product Master — Add / Edit");p.setOnClickListener(v->showProductMaster());add(p);TextView n=new TextView(this);n.setText("Product Code/Name changes are migrated through batch references; new Products automatically receive recipe quantity 0 for every RM.");n.setPadding(0,dp(12),0,0);add(n);}
  private void showRmMaster(){clear("RM Master");if(admin()){LinearLayout addrow=row();EditText c=edit("New RM Code"),n=edit("Name"),u=edit("UoM");addrow.addView(c,new LinearLayout.LayoutParams(0,dp(52),1));addrow.addView(n,new LinearLayout.LayoutParams(0,dp(52),2));addrow.addView(u,new LinearLayout.LayoutParams(0,dp(52),1));Button a=btn("Add");addrow.addView(a);a.setOnClickListener(v->{try{String code=c.getText().toString().trim(),name=n.getText().toString().trim(),uom=u.getText().toString().trim();if(code.isEmpty()||name.isEmpty())throw new Exception("Code and name required");if(db.one("SELECT code FROM rms WHERE code=?",new String[]{code})!=null)throw new Exception("Duplicate RM Code");ContentValues z=new ContentValues();z.put("code",code);z.put("name",name);z.put("uom",uom.isEmpty()?"kg":uom);z.put("opening",0);db.insert("rms",z);for(JSONObject p:db.rows("SELECT code FROM products",null)){ContentValues q=new ContentValues();q.put("rm_code",code);q.put("product_code",p.getInt("code"));q.put("qty",0);db.insert("recipes",q);}showRmMaster();}catch(Exception e){error(e);}});add(addrow);}try{for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){LinearLayout x=row();EditText code=edit("Code"),name=edit("Name"),uom=edit("UoM"),open=edit("Opening");code.setText(r.getString("code"));name.setText(r.getString("name"));uom.setText(r.getString("uom"));open.setText(fmt(r.getDouble("opening")));x.addView(code,new LinearLayout.LayoutParams(0,dp(52),1));x.addView(name,new LinearLayout.LayoutParams(0,dp(52),2));x.addView(uom,new LinearLayout.LayoutParams(0,dp(52),1));x.addView(open,new LinearLayout.LayoutParams(0,dp(52),1));Button save=btn("Save");x.addView(save);String old=r.getString("code");save.setOnClickListener(v->saveRm(old,code,name,uom,open));add(x);}}catch(Exception e){error(e);}}
