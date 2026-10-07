@@ -107,7 +107,11 @@ public class MainActivity extends Activity {
             for(JSONObject r:rms){
                 LinearLayout card=row();
                 card.setPadding(dp(14),dp(12),dp(14),dp(12));
-                card.setBackgroundColor(Color.WHITE);
+                android.graphics.drawable.GradientDrawable cbg=new android.graphics.drawable.GradientDrawable();
+            cbg.setColor(Color.WHITE);
+            cbg.setCornerRadius(dp(16));
+            cbg.setStroke(dp(1),Color.rgb(219,228,237));
+            card.setBackground(cbg);
 
                 TextView info=new TextView(this);
                 info.setText(r.getString("code")+"  •  "+r.getString("name"));
@@ -187,7 +191,7 @@ d.setTextSize(15);q.setTextSize(15);v.setTextSize(15);note.setTextSize(15);
 d.setPadding(dp(12),dp(12),dp(12),dp(12));
 q.setPadding(dp(12),dp(12),dp(12),dp(12));
 v.setPadding(dp(12),dp(12),dp(12),dp(12));
-note.setPadding(dp(12),dp(12),dp(12),dp(12));
+note.setPadding(dp(11),dp(10),dp(11),dp(10));
 rm.setPadding(dp(8),dp(8),dp(8),dp(8));
 Button save=btn("Save Receive");
 save.setTextSize(15);
@@ -204,7 +208,11 @@ Button editB=btn("Edit");
 editB.setTextSize(14);
 editB.setAllCaps(false);editB.setOnClickListener(xx->{d.setText(r.optString("date"));q.setText(fmt(r.optDouble("qty")));v.setText(r.optString("voucher_no"));note.setText(r.optString("note"));String target=r.optString("rm_code");for(int i=0;i<a.size();i++)if(a.get(i).startsWith(target+" — ")){rm.setSelection(i);break;}save.setText("Update Receive #"+r.optString("id"));save.setOnClickListener(uu->{try{ContentValues z=new ContentValues();z.put("date",d.getText().toString().trim());z.put("rm_code",String.valueOf(rm.getSelectedItem()).split(" — ",2)[0].trim());z.put("qty",num(q.getText().toString()));z.put("voucher_no",v.getText().toString().trim());z.put("note",note.getText().toString().trim());int n=db.getWritableDatabase().update("receives",z,"id=?",new String[]{r.optString("id")});if(n!=1)throw new Exception("Update failed");toast("Receive updated ✔");showDaily();}catch(Exception e){error(e);}});});
 row.setPadding(dp(12),dp(10),dp(12),dp(10));
-row.setBackgroundColor(Color.WHITE);
+android.graphics.drawable.GradientDrawable rbg=new android.graphics.drawable.GradientDrawable();
+        rbg.setColor(Color.WHITE);
+        rbg.setCornerRadius(dp(16));
+        rbg.setStroke(dp(1),Color.rgb(219,228,237));
+        row.setBackground(rbg);
 row.addView(editB);
 add(row);
 Space rowSpace=new Space(this);
