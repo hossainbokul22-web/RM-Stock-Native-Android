@@ -6,8 +6,9 @@ import android.Manifest;import android.app.*;import android.content.*;import and
 
 public class MainActivity extends Activity {
  private StockDb db; private LinearLayout root,content; private Uri photoUri; private static final int CAM=77,PHOTO=78; private final Handler main=new Handler(Looper.getMainLooper()); private final String role="Owner/Admin";
- private File pendingPdf; private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);} private TextView title(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(22);t.setTypeface(null,1);t.setPadding(dp(4),dp(12),dp(4),dp(10));return t;} private Button btn(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);return b;} private EditText edit(String hint){EditText e=new EditText(this);e.setHint(hint);e.setSingleLine(true);e.setPadding(dp(10),dp(4),dp(10),dp(4));return e;} private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);l.setPadding(0,dp(3),0,dp(3));return l;} private void add(View v){content.addView(v,new LinearLayout.LayoutParams(-1,-2));}
+ private File pendingPdf; private String currentScreen="Dashboard"; private final List<Runnable> dashboardRunnables=new ArrayList<>(); private int dp(float n){return (int)(n*getResources().getDisplayMetrics().density+.5f);} private TextView title(String s){TextView t=new TextView(this);t.setText(s);t.setTextSize(22);t.setTypeface(null,1);t.setPadding(dp(4),dp(12),dp(4),dp(10));return t;} private Button btn(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);return b;} private EditText edit(String hint){EditText e=new EditText(this);e.setHint(hint);e.setSingleLine(true);e.setPadding(dp(10),dp(4),dp(10),dp(4));return e;} private LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setGravity(Gravity.CENTER_VERTICAL);l.setPadding(0,dp(3),0,dp(3));return l;} private void add(View v){content.addView(v,new LinearLayout.LayoutParams(-1,-2));}
  @Override public void onCreate(Bundle b){super.onCreate(b);db=new StockDb(this);db.setSetting("role","Owner/Admin");build();showDashboard();}
+ @Override public void onBackPressed(){if(!"Dashboard".equals(currentScreen)){showDashboard();return;} super.onBackPressed();}
  private void build(){
         root=new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -15,13 +16,13 @@ public class MainActivity extends Activity {
 
         LinearLayout header=new LinearLayout(this);
         header.setOrientation(LinearLayout.VERTICAL);
-        header.setPadding(dp(18),dp(14),dp(18),dp(12));
+        header.setPadding(dp(18),dp(8),dp(18),dp(6));
         header.setBackgroundColor(android.graphics.Color.rgb(20,55,95));
 
         TextView brand=new TextView(this);
         brand.setText("RM STOCK");
         brand.setTextColor(android.graphics.Color.WHITE);
-        brand.setTextSize(21);
+        brand.setTextSize(19);
         brand.setTypeface(null,android.graphics.Typeface.BOLD);
         header.addView(brand);
 
@@ -31,7 +32,7 @@ public class MainActivity extends Activity {
         sub.setTextSize(12);
         header.addView(sub);
 
-        root.addView(header,new LinearLayout.LayoutParams(-1,dp(72)));
+        root.addView(header,new LinearLayout.LayoutParams(-1,dp(58)));
 
         ScrollView sv=new ScrollView(this);
         content=new LinearLayout(this);
@@ -40,17 +41,22 @@ public class MainActivity extends Activity {
         sv.addView(content);
         root.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
 
+        HorizontalScrollView navScroll=new HorizontalScrollView(this);
+        navScroll.setHorizontalScrollBarEnabled(false);
+        navScroll.setFillViewport(false);
         LinearLayout nav=new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
         nav.setPadding(dp(4),dp(4),dp(4),dp(4));
         nav.setBackgroundColor(android.graphics.Color.WHITE);
 
-        String[] ns={"Dashboard","Daily Entry","Batch","Reports","Master","Recipe","Custom","AI"};
-        for(String n:ns){
-            Button b=btn(n);
+        String[] ns={"⌂\nDashboard","＋\nDaily Entry","▣\nBatch","▤\nReports","◆\nMaster","◇\nRecipe","⚙\nCustom","✦\nAI"};
+        for(String navLabel:ns){
+            final String n=navLabel.substring(navLabel.indexOf('\n')+1);
+            Button b=btn(navLabel);
             b.setTextSize(10);
             b.setAllCaps(false);
-            b.setPadding(0,0,0,0);
+            b.setMinWidth(dp(76));
+            b.setPadding(dp(5),0,dp(5),0);
             b.setOnClickListener(v->{
                 if(n.equals("Dashboard"))showDashboard();
                 else if(n.equals("Daily Entry"))showDaily();
@@ -61,84 +67,75 @@ public class MainActivity extends Activity {
                 else if(n.equals("Custom"))showCustom();
                 else showAI();
             });
-            nav.addView(b,new LinearLayout.LayoutParams(0,dp(54),1));
+            nav.addView(b,new LinearLayout.LayoutParams(dp(78),dp(54)));
         }
-        root.addView(nav);
+        navScroll.addView(nav);
+        root.addView(navScroll,new LinearLayout.LayoutParams(-1,dp(62)));
         setContentView(root);
     }
 
-    private void clear(String head){content.removeAllViews();add(title(head));TextView r=new TextView(this);r.setText("Role: "+role+"   •   Offline Native Android");r.setPadding(0,0,0,dp(8));content.addView(r);}
+    private void clear(String head){currentScreen=head;for(Runnable task:dashboardRunnables)main.removeCallbacks(task);dashboardRunnables.clear();content.removeAllViews();add(title(head));TextView r=new TextView(this);r.setText("Role: "+role+"   •   Offline Native Android");r.setPadding(0,0,0,dp(8));content.addView(r);}
  private boolean admin(){return true;}
  private void showDashboard(){
-    clear("RM Stock Dashboard");
+    clear("Dashboard");
     try{
-        int rmCount=db.rows("SELECT * FROM rms",null).size();
-        int productCount=db.rows("SELECT * FROM products",null).size();
-        int receiveCount=db.rows("SELECT * FROM receives",null).size();
-        int batchCount=db.rows("SELECT * FROM batches",null).size();
+        TextView live=new TextView(this); live.setText("LIVE DATA  •  Today’s RM Receive, Mixing-2 Use, Batch and Closing Stock");
+        live.setTextSize(12); live.setTextColor(Color.rgb(77,101,124)); live.setPadding(dp(2),0,dp(2),dp(10)); add(live);
 
-        LinearLayout stats=new LinearLayout(this);
-        stats.setOrientation(LinearLayout.VERTICAL);
-        stats.setPadding(0,dp(4),0,dp(12));
+        LinearLayout grid=new LinearLayout(this); grid.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout r1=row(),r2=row();
+        TextView receiveValue=new TextView(this),useValue=new TextView(this),batchValue=new TextView(this),closingValue=new TextView(this);
+        addLiveCard(r1,"Today RM Receive",receiveValue,"#EAF7EF");
+        addLiveCard(r1,"Today Mixing-2 Use",useValue,"#EEF4FC");
+        addLiveCard(r2,"Today Batch",batchValue,"#FFF5E8");
+        addLiveCard(r2,"Today Closing Stock",closingValue,"#F3EEFC");
+        grid.addView(r1); grid.addView(r2); add(grid);
 
-        addDashCard(stats,"RAW MATERIALS",String.valueOf(rmCount));
-        addDashCard(stats,"PRODUCTS",String.valueOf(productCount));
-        addDashCard(stats,"DAILY ENTRIES",String.valueOf(receiveCount));
-        addDashCard(stats,"BATCHES",String.valueOf(batchCount));
-
-        content.addView(stats);
-
-        TextView section=title("Raw Material Stock");
-        section.setTextSize(18);
-        section.setPadding(0,dp(8),0,dp(8));
-        content.addView(section);
-
-        List<JSONObject> rms=db.rows(
-            "SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null);
-
-        if(rms.size()==0){
-            TextView empty=new TextView(this);
-            empty.setText("No raw materials added yet.");
-            empty.setTextSize(14);
-            empty.setTextColor(Color.DKGRAY);
-            empty.setPadding(dp(4),dp(12),dp(4),dp(12));
-            content.addView(empty);
-        }else{
-            for(JSONObject r:rms){
-                LinearLayout card=row();
-                card.setPadding(dp(14),dp(12),dp(14),dp(12));
-                card.setBackgroundColor(Color.WHITE);
-
-                TextView info=new TextView(this);
-                info.setText(r.getString("code")+"  •  "+r.getString("name"));
-                info.setTextSize(15);
-                info.setTypeface(null,Typeface.BOLD);
-                info.setTextColor(Color.rgb(20,55,95));
-                info.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));
-
-                TextView qty=new TextView(this);
-                qty.setText(fmt(r.getDouble("opening"))+" "+r.getString("uom"));
-                qty.setTextSize(14);
-                qty.setTextColor(Color.DKGRAY);
-
-                card.addView(info);
-                card.addView(qty);
-                content.addView(card);
-
-                Space sp=new Space(this);
-                content.addView(sp,new LinearLayout.LayoutParams(1,dp(6)));
-            }
+        String d=today();
+        List<String> receives=new ArrayList<>(), uses=new ArrayList<>(), batches=new ArrayList<>(), closings=new ArrayList<>();
+        for(JSONObject x:db.rows("SELECT r.rm_code, m.name, m.uom, SUM(r.qty) qty FROM receives r LEFT JOIN rms m ON m.code=r.rm_code WHERE r.date=? GROUP BY r.rm_code,m.name,m.uom HAVING ABS(SUM(r.qty))>0.0000001 ORDER BY CAST(r.rm_code AS INTEGER)",new String[]{d}))
+            receives.add(x.optString("rm_code")+" • "+x.optString("name","RM")+"  "+fmt(x.optDouble("qty"))+" "+x.optString("uom","kg"));
+        for(JSONObject x:db.rows("SELECT l.rm_code,m.name,m.uom,SUM(l.consumption) qty FROM mixing2_batch_log l LEFT JOIN rms m ON m.code=l.rm_code WHERE l.date=? GROUP BY l.rm_code,m.name,m.uom HAVING ABS(SUM(l.consumption))>0.0000001 ORDER BY CAST(l.rm_code AS INTEGER)",new String[]{d}))
+            uses.add(x.optString("rm_code")+" • "+x.optString("name","RM")+"  "+fmt(x.optDouble("qty"))+" "+x.optString("uom","kg"));
+        for(JSONObject x:db.rows("SELECT b.product_code,p.name,b.shift,SUM(b.qty) qty FROM batches b LEFT JOIN products p ON p.code=b.product_code WHERE b.date=? GROUP BY b.product_code,p.name,b.shift ORDER BY b.product_code,b.shift",new String[]{d}))
+            batches.add(x.optString("name", "Product "+x.optString("product_code"))+" • Shift "+x.optString("shift")+"  "+fmt(x.optDouble("qty"))+" batch");
+        double totalReceive=0,totalUse=0;
+        JSONObject tr=db.one("SELECT COALESCE(SUM(qty),0) qty FROM receives WHERE date=?",new String[]{d}); if(tr!=null)totalReceive=tr.optDouble("qty");
+        JSONObject tu=db.one("SELECT COALESCE(SUM(consumption),0) qty FROM mixing2_batch_log WHERE date=?",new String[]{d}); if(tu!=null)totalUse=tu.optDouble("qty");
+        int batchCount=0; JSONObject bc=db.one("SELECT COUNT(*) n FROM batches WHERE date=?",new String[]{d}); if(bc!=null)batchCount=bc.optInt("n");
+        for(JSONObject rm:db.rows("SELECT code,name,uom FROM rms ORDER BY CAST(code AS INTEGER)",null)){
+            String code=rm.getString("code"); double open=rm.optDouble("opening");
+            JSONObject rec=db.one("SELECT COALESCE(SUM(qty),0) qty FROM receives WHERE rm_code=? AND date<=?",new String[]{code,d});
+            JSONObject use=db.one("SELECT COALESCE(SUM(consumption),0) qty FROM mixing2_batch_log WHERE rm_code=? AND date<=?",new String[]{code,d});
+            double closing=open+(rec==null?0:rec.optDouble("qty"))-(use==null?0:use.optDouble("qty"));
+            closings.add(code+" • "+rm.getString("name")+"  "+fmt(closing)+" "+rm.getString("uom"));
         }
+        startTicker(receiveValue,receives,"No RM receive today",totalReceive==0?"0.000 KG":fmt(totalReceive)+" KG");
+        startTicker(useValue,uses,"No Mixing-2 use today",totalUse==0?"0.000 KG":fmt(totalUse)+" KG");
+        startTicker(batchValue,batches,"No batch entered today",batchCount+" Batch");
+        startTicker(closingValue,closings,"No raw materials",closings.isEmpty()?"0.000 KG":closings.get(0));
 
-        TextView owner=new TextView(this);
-        owner.setText("Owner / Admin • Full offline access");
-        owner.setTextSize(12);
-        owner.setTextColor(Color.DKGRAY);
-        owner.setPadding(0,dp(14),0,dp(10));
-        content.addView(owner);
-
+        addSectionTitle("Today Batch",Color.rgb(235,243,253));
+        addSimpleTable(new String[]{"Product","Batch / Shift","Qty"},batches);
+        addSectionTitle("Today Receive",Color.rgb(235,248,240));
+        addSimpleTable(new String[]{"RM","Receive","UoM"},receives);
+        addSectionTitle("Today Mixing-2 Use",Color.rgb(243,238,252));
+        addSimpleTable(new String[]{"RM","Use","UoM"},uses);
+        addSectionTitle("Stock Overview",Color.WHITE);
+        if(closings.isEmpty()) addSimpleTable(new String[]{"Raw Material","Closing Stock"},closings);
+        else {
+            List<JSONObject> stock=db.rows("SELECT code,name,uom,opening FROM rms ORDER BY CAST(code AS INTEGER)",null);
+            stock.sort((a,b)->{try{return Double.compare(closingFor(b.getString("code"),d),closingFor(a.getString("code"),d));}catch(Exception e){return 0;}});
+            for(JSONObject rm:stock){double c=closingFor(rm.getString("code"),d); LinearLayout item=row(); item.setPadding(dp(10),dp(9),dp(10),dp(9)); item.setBackgroundColor(Color.WHITE); TextView nm=new TextView(this);nm.setText(rm.getString("name"));nm.setTextSize(14);nm.setTextColor(Color.rgb(55,70,84));nm.setLayoutParams(new LinearLayout.LayoutParams(0,-2,1));TextView q=new TextView(this);q.setText(fmt(c)+" "+rm.getString("uom"));q.setTextSize(14);q.setTypeface(null,Typeface.BOLD);q.setTextColor(c<0?Color.rgb(184,57,57):Color.rgb(35,75,110));item.addView(nm);item.addView(q);add(item);View line=new View(this);line.setBackgroundColor(Color.rgb(232,237,242));add(line);}
+        }
+        TextView owner=new TextView(this);owner.setText("Owner / Admin • Full offline access");owner.setTextSize(12);owner.setTextColor(Color.DKGRAY);owner.setPadding(0,dp(14),0,dp(10));add(owner);
     }catch(Exception e){error(e);}
-}
+ }
+ private double closingFor(String code,String d)throws Exception{return opening(d,code)+receive(d,code)-use(d,code);}
+ private void addLiveCard(LinearLayout parent,String label,TextView value,String color){LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(12),dp(10),dp(10),dp(10));card.setBackgroundColor(Color.WHITE);TextView l=new TextView(this);l.setText(label);l.setTextSize(11);l.setTextColor(Color.rgb(100,113,126));value.setTextSize(13);value.setTypeface(null,Typeface.BOLD);value.setTextColor(Color.rgb(27,59,91));value.setSingleLine(false);value.setMaxLines(4);value.setMinLines(2);value.setBreakStrategy(android.text.Layout.BREAK_STRATEGY_HIGH_QUALITY);value.setHyphenationFrequency(android.text.Layout.HYPHENATION_FREQUENCY_NONE);value.setEllipsize(null);value.setGravity(android.view.Gravity.CENTER_VERTICAL);card.addView(l);card.addView(value);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(0,dp(112),1);cp.setMargins(dp(3),dp(3),dp(3),dp(3));parent.addView(card,cp);}
+ private void startTicker(TextView view,List<String> items,String empty,String summary){if(items.isEmpty()){view.setText(empty);return;}view.setText(summary);final int[] idx={0};final Runnable[] task=new Runnable[1];task[0]=()->{if(!view.isAttachedToWindow())return;if(idx[0]>=items.size()){idx[0]=0;view.setText(summary);Runnable pause=()->{if(view.isAttachedToWindow())main.post(task[0]);};dashboardRunnables.add(pause);main.postDelayed(pause,2000);return;}view.animate().cancel();view.setAlpha(0.25f);view.setTranslationY(dp(5));view.setText(items.get(idx[0]++));view.animate().alpha(1f).translationY(0).setDuration(180).start();Runnable next=()->main.post(task[0]);dashboardRunnables.add(next);main.postDelayed(next,2000);};Runnable first=()->main.post(task[0]);dashboardRunnables.add(first);main.postDelayed(first,2000);}
+ private void addSectionTitle(String text,int bg){TextView h=title(text);h.setTextSize(16);h.setPadding(dp(8),dp(10),dp(8),dp(10));h.setBackgroundColor(bg);add(h);}
+ private void addSimpleTable(String[] headers,List<String> rows){LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(8),dp(6),dp(8),dp(6));card.setBackgroundColor(Color.WHITE);if(rows.isEmpty()){TextView e=new TextView(this);e.setText("No entries today");e.setTextSize(13);e.setPadding(dp(6),dp(8),dp(6),dp(8));card.addView(e);}else{for(String value:rows){TextView t=new TextView(this);t.setText(value);t.setTextSize(13);t.setTextColor(Color.rgb(49,65,80));t.setPadding(dp(6),dp(7),dp(6),dp(7));card.addView(t);View divider=new View(this);divider.setBackgroundColor(Color.rgb(232,237,242));card.addView(divider,new LinearLayout.LayoutParams(-1,dp(1)));}}add(card);Space sp=new Space(this);add(sp);}
 
 private void addDashCard(LinearLayout parent,String label,String value){
     LinearLayout card=new LinearLayout(this);
@@ -292,17 +289,55 @@ for(int i=0;i<content.getChildCount();i++){
  private void showReceiveMonthly(String m){if(!validMonth(m)){error(new Exception("Month must be YYYY-MM"));return;}clear("RM Receive Monthly — Day-wise");try{int days=daysInMonth(m);HorizontalScrollView hs=new HorizontalScrollView(this);TableLayout t=new TableLayout(this);TableRow h=new TableRow(this);h.addView(tv("RM",1));for(int d=1;d<=days;d++)h.addView(tv(String.valueOf(d),1));h.addView(tv("Total",1));t.addView(h);for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){TableRow tr=new TableRow(this);tr.addView(tv(rm.optString("code")+" "+rm.optString("name"),1));double total=0;for(int d=1;d<=days;d++){String date=m+"-"+String.format(Locale.US,"%02d",d);double q=receive(date,rm.getString("code"));total+=q;tr.addView(tv(fmt(q),1));}tr.addView(tv(fmt(total),1));t.addView(tr);}hs.addView(t);add(hs);Button pdf=btn("Print / PDF");pdf.setOnClickListener(v->reportReceive(m));add(pdf);}catch(Exception e){error(e);}}
  private void showMixingMonthlySheet(String m){if(!validMonth(m)){error(new Exception("Month must be YYYY-MM"));return;}clear("RM Mixing-2 Monthly — Day-wise");try{int days=daysInMonth(m);HorizontalScrollView hs=new HorizontalScrollView(this);TableLayout t=new TableLayout(this);TableRow h=new TableRow(this);h.addView(tv("RM",1));for(int d=1;d<=days;d++)h.addView(tv(String.valueOf(d),1));h.addView(tv("Total",1));t.addView(h);for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){TableRow tr=new TableRow(this);tr.addView(tv(rm.optString("code")+" "+rm.optString("name"),1));double total=0;for(int d=1;d<=days;d++){String date=m+"-"+String.format(Locale.US,"%02d",d);double q=use(date,rm.getString("code"));total+=q;tr.addView(tv(fmt(q),1));}tr.addView(tv(fmt(total),1));t.addView(tr);}hs.addView(t);add(hs);Button pdf=btn("Print / PDF");pdf.setOnClickListener(v->reportMixingMonthly(m));add(pdf);}catch(Exception e){error(e);}}
  private void showBatchLogSheet(String m){if(!validMonth(m)){error(new Exception("Month must be YYYY-MM"));return;}clear("RM Mixing-2 Batch Log");try{HorizontalScrollView hs=new HorizontalScrollView(this);TableLayout t=new TableLayout(this);TableRow h=new TableRow(this);for(String x:new String[]{"Date","Product","Shift","RM","Recipe","Batches","Consumption"})h.addView(tv(x,1));t.addView(h);for(JSONObject x:db.rows("SELECT l.*,p.name product_name FROM mixing2_batch_log l LEFT JOIN products p ON p.code=l.product_code WHERE l.date LIKE ? ORDER BY l.date,l.product_code,l.shift,l.rm_code",new String[]{m+"-%"})){TableRow tr=new TableRow(this);for(String v:new String[]{x.optString("date"),x.optString("product_name",x.optString("product_code")),x.optString("shift"),x.optString("rm_code"),fmt(x.optDouble("recipe_qty")),fmt(x.optDouble("batch_count")),fmt(x.optDouble("consumption"))})tr.addView(tv(v,1));t.addView(tr);}hs.addView(t);add(hs);Button pdf=btn("Print / PDF");pdf.setOnClickListener(v->reportBatchLog(m));add(pdf);}catch(Exception e){error(e);}}
- private void showDailyDateSheet(String m){if(!validMonth(m)){error(new Exception("Month must be YYYY-MM"));return;}clear("Daily Date Report");try{for(int d=1;d<=daysInMonth(m);d++){String date=m+"-"+String.format(Locale.US,"%02d",d);LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(10),dp(8),dp(10),dp(8));card.setBackgroundColor(Color.WHITE);card.addView(tv("Date: "+date,1));for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){double rec=receive(date,rm.getString("code")),u=use(date,rm.getString("code"));if(rec!=0||u!=0)card.addView(tv(rm.optString("code")+" | Receive: "+fmt(rec)+" | Use: "+fmt(u)+" | Closing: "+fmt(opening(date,rm.getString("code"))+rec-u),1));}add(card);Space sp=new Space(this);content.addView(sp,new LinearLayout.LayoutParams(1,dp(6)));}Button pdf=btn("Print / PDF");pdf.setOnClickListener(v->reportDailyMonth(m));add(pdf);}catch(Exception e){error(e);}}
- private void showFinalMonthlySheet(String m){if(!validMonth(m)){error(new Exception("Month must be YYYY-MM"));return;}clear("Final Monthly Usage");try{for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){double o=opening(m+"-01",rm.getString("code")),rec=monthlyReceive(m,rm.getString("code")),u=monthlyUse(m,rm.getString("code"));add(tv(rm.optString("code")+" | "+rm.optString("name")+" | Opening: "+fmt(o)+" | Receive: "+fmt(rec)+" | Use: "+fmt(u)+" | Closing: "+fmt(o+rec-u),1));}Button pdf=btn("Print / PDF");pdf.setOnClickListener(v->reportMonthly(m));add(pdf);}catch(Exception e){error(e);}}
+ private void showDailyDateSheet(String m){
+  if(!validMonth(m)){error(new Exception("Month must be YYYY-MM"));return;}
+  clear("Daily Date Report");
+  try{
+   EditText dateInput=edit("Date (YYYY-MM-DD)");dateInput.setText(today().startsWith(m)?today():m+"-01");add(dateInput);
+   Button show=btn("Show Selected Date");add(show);
+   Button pdf=btn("Save PDF / Share / Print Selected Date");add(pdf);
+   Button monthPdf=btn("Save PDF / Print Full Month");add(monthPdf);
+   LinearLayout tableHost=new LinearLayout(this);tableHost.setOrientation(LinearLayout.VERTICAL);add(tableHost);
+   Runnable render=()->{try{
+    String date=dateInput.getText().toString().trim();
+    if(!date.matches("\\d{4}-\\d{2}-\\d{2}")||!date.startsWith(m+"-"))throw new Exception("Enter a valid date in selected month (YYYY-MM-DD)");
+    tableHost.removeAllViews();
+    HorizontalScrollView hs=new HorizontalScrollView(this);TableLayout t=new TableLayout(this);t.setStretchAllColumns(true);
+    TableRow h=new TableRow(this);for(String col:new String[]{"Item Code","Item Name","UoM","Opening","Receive","Use","Closing","Status"})h.addView(tv(col,1));t.addView(h);
+    for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){
+      String code=rm.getString("code");double o=opening(date,code),rec=receive(date,code),u=use(date,code),c=o+rec-u;
+      TableRow tr=new TableRow(this);String status=c<0?"LOW/NEGATIVE":(c==0?"ZERO":"OK");
+      for(String val:new String[]{code,rm.optString("name"),rm.optString("uom","KG"),fmt(o),fmt(rec),fmt(u),fmt(c),status})tr.addView(tv(val,1));t.addView(tr);
+    }
+    hs.addView(t);tableHost.addView(hs,new LinearLayout.LayoutParams(-1,-2));
+   }catch(Exception e){error(e);}};
+   show.setOnClickListener(v->render.run());pdf.setOnClickListener(v->{try{String date=dateInput.getText().toString().trim();if(!date.matches("\\d{4}-\\d{2}-\\d{2}")||!date.startsWith(m+"-"))throw new Exception("Enter a valid date in selected month (YYYY-MM-DD)");reportDaily(date);}catch(Exception e){error(e);}});
+   monthPdf.setOnClickListener(v->reportDailyMonth(m));render.run();
+  }catch(Exception e){error(e);}
+ }
+ private void showFinalMonthlySheet(String m){if(!validMonth(m)){error(new Exception("Month must be YYYY-MM"));return;}clear("Final Monthly Usage");try{HorizontalScrollView hs=new HorizontalScrollView(this);TableLayout t=new TableLayout(this);t.setStretchAllColumns(true);TableRow h=new TableRow(this);for(String col:new String[]{"Item Code","Item Name","UoM","Opening Balance","Total Receive","Total Use","Closing Balance","Status"})h.addView(tv(col,1));t.addView(h);for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=rm.getString("code");double o=opening(m+"-01",code),rec=monthlyReceive(m,code),u=monthlyUse(m,code),cl=o+rec-u;String status=cl<0?"LOW/NEGATIVE":(cl==0?"ZERO":"OK");TableRow tr=new TableRow(this);for(String val:new String[]{code,rm.optString("name"),rm.optString("uom","KG"),fmt(o),fmt(rec),fmt(u),fmt(cl),status})tr.addView(tv(val,1));t.addView(tr);}hs.addView(t);add(hs);Button pdf=btn("Save PDF / Share / Print");pdf.setOnClickListener(v->reportMonthly(m));add(pdf);Button excel=btn("Export Excel-compatible CSV");excel.setOnClickListener(v->exportMonthlyCsv(m));add(excel);Button finalize=btn("Finalize Month (Admin)");finalize.setOnClickListener(v->finalizeMonth(m));add(finalize);Button snapshot=btn("View Saved Finalized Snapshot");snapshot.setOnClickListener(v->viewFinalizedSnapshot(m));add(snapshot);String saved=db.setting("finalized_month_"+m,"");TextView state=tv(saved.isEmpty()?"Finalized snapshot: Not saved":"Finalized snapshot: Saved (fixed historical snapshot)",1);state.setTextColor(saved.isEmpty()?Color.DKGRAY:Color.rgb(20,110,60));add(state);}catch(Exception e){error(e);}}
+ private void viewFinalizedSnapshot(String month){try{String raw=db.setting("finalized_month_"+month,"");if(raw.isEmpty()){toast("No finalized snapshot saved for "+month);return;}JSONObject snapshot=new JSONObject(raw);StringBuilder out=new StringBuilder("Month: ").append(snapshot.optString("month",month)).append("\nFinalized at: ").append(snapshot.optString("finalized_at","Unknown")).append("\n\nCode | Item | UoM | Opening | Receive | Use | Closing | Status\n");JSONArray items=snapshot.optJSONArray("items");if(items!=null)for(int i=0;i<items.length();i++){JSONObject x=items.optJSONObject(i);if(x==null)continue;out.append(x.optString("code")).append(" | ").append(x.optString("name")).append(" | ").append(x.optString("uom")).append(" | ").append(fmt(x.optDouble("opening"))).append(" | ").append(fmt(x.optDouble("receive"))).append(" | ").append(fmt(x.optDouble("use"))).append(" | ").append(fmt(x.optDouble("closing"))).append(" | ").append(x.optString("status")).append("\n");}new AlertDialog.Builder(this).setTitle("Saved snapshot — "+month).setMessage(out.toString()).setPositiveButton("OK",null).show();}catch(Exception e){error(e);}}
+ private void finalizeMonth(String month){new AlertDialog.Builder(this).setTitle("Finalize month "+month).setMessage("Save a fixed snapshot of this month’s opening, receive, use and closing balances? This records the current totals; later entries can still change live reports.").setNegativeButton("Cancel",null).setPositiveButton("Finalize",(d,w)->{try{JSONObject snapshot=new JSONObject();snapshot.put("month",month);snapshot.put("finalized_at",new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss",Locale.US).format(new java.util.Date()));JSONArray items=new JSONArray();for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=rm.getString("code");double o=opening(month+"-01",code),rec=monthlyReceive(month,code),u=monthlyUse(month,code),cl=o+rec-u;JSONObject item=new JSONObject();item.put("code",code);item.put("name",rm.optString("name"));item.put("uom",rm.optString("uom","KG"));item.put("opening",o);item.put("receive",rec);item.put("use",u);item.put("closing",cl);item.put("status",cl<0?"LOW/NEGATIVE":(cl==0?"ZERO":"OK"));items.put(item);}snapshot.put("items",items);db.setSetting("finalized_month_"+month,snapshot.toString());new AlertDialog.Builder(this).setTitle("Month finalized").setMessage("Saved snapshot for "+month+". The live reports remain available.").setPositiveButton("OK",null).show();}catch(Exception e){error(e);}}).show();}
  private boolean validMonth(String m){return m!=null&&m.matches("\\d{4}-\\d{2}")&&Integer.parseInt(m.substring(5,7))>=1&&Integer.parseInt(m.substring(5,7))<=12;} private int daysInMonth(String m){if(!validMonth(m))throw new IllegalArgumentException("Month must be YYYY-MM");Calendar c=Calendar.getInstance();c.set(Integer.parseInt(m.substring(0,4)),Integer.parseInt(m.substring(5,7))-1,1);return c.getActualMaximum(Calendar.DAY_OF_MONTH);}
- private void reportDaily(String d){try{StringBuilder s=new StringBuilder("RM STOCK - DAILY REPORT\nDate: "+d+"\n\nCode | Name | Opening | Receive | Use | Closing\n");for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=r.getString("code");double o=opening(d,code),rec=receive(d,code),u=use(d,code),c=o+rec-u;s.append(code).append(" | ").append(r.getString("name")).append(" | ").append(fmt(o)).append(" | ").append(fmt(rec)).append(" | ").append(fmt(u)).append(" | ").append(fmt(c)).append("\n");}sharePdf(s.toString(),"Daily-"+d);}catch(Exception e){error(e);}} private void reportDailyMonth(String m){try{StringBuilder s=new StringBuilder("RM STOCK - DAILY DATE REPORT\nMonth: ").append(m).append("\n\n");int days=daysInMonth(m);for(int d=1;d<=days;d++){String date=m+"-"+String.format(Locale.US,"%02d",d);s.append("Date: ").append(date).append("\nCode | Name | Opening | Receive | Use | Closing\n");for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=r.getString("code");double o=opening(date,code),rec=receive(date,code),u=use(date,code),c=o+rec-u;s.append(code).append(" | ").append(r.getString("name")).append(" | ").append(fmt(o)).append(" | ").append(fmt(rec)).append(" | ").append(fmt(u)).append(" | ").append(fmt(c)).append("\n");}s.append("\n");}sharePdf(s.toString(),"Daily-Report-"+m);}catch(Exception e){error(e);}}
- private void reportMonthly(String m){try{StringBuilder s=new StringBuilder("RM STOCK - MONTHLY USAGE\nMonth: "+m+"\n\nCode | Name | Opening | Receive | Use | Closing\n");for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String c=r.getString("code");double o=opening(m+"-01",c),rec=monthlyReceive(m,c),u=monthlyUse(m,c),cl=o+rec-u;s.append(c).append(" | ").append(r.getString("name")).append(" | ").append(fmt(o)).append(" | ").append(fmt(rec)).append(" | ").append(fmt(u)).append(" | ").append(fmt(cl)).append("\n");}sharePdf(s.toString(),"Monthly-"+m);}catch(Exception e){error(e);}}
- private void reportReceive(String m){try{int days=daysInMonth(m);StringBuilder s=new StringBuilder("RM STOCK - MONTHLY RECEIVE — DAY-WISE\nMonth: ").append(m).append("\n\nCode | Name | ");for(int d=1;d<=days;d++)s.append(d).append(" | ");s.append("Total\n");for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){s.append(r.getString("code")).append(" | ").append(r.getString("name")).append(" | ");double total=0;for(int d=1;d<=days;d++){double q=receive(m+"-"+String.format(Locale.US,"%02d",d),r.getString("code"));total+=q;s.append(fmt(q)).append(" | ");}s.append(fmt(total)).append("\n");}sharePdf(s.toString(),"Receive-"+m);}catch(Exception e){error(e);}}
+ private String dailyStatus(double closing){return closing<0?"LOW/NEGATIVE":(closing==0?"ZERO":"OK");}
+ private void reportDaily(String d){try{ArrayList<String[]> rows=new ArrayList<>();for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=r.getString("code");double o=opening(d,code),rec=receive(d,code),u=use(d,code),c=o+rec-u;rows.add(new String[]{code,r.optString("name"),r.optString("uom","KG"),fmt(o),fmt(rec),fmt(u),fmt(c),dailyStatus(c)});}createLandscapeTablePdf("RM STOCK - DAILY DATE REPORT","Date: "+d,new String[]{"Item Code","Item Name","UoM","Opening","Receive","Use","Closing Balance","Status"},rows,"Daily-"+d);}catch(Exception e){error(e);}}
+ private void reportDailyMonth(String m){try{StringBuilder s=new StringBuilder("RM STOCK - DAILY DATE REPORT\nMonth: ").append(m).append("\n\n");int days=daysInMonth(m);for(int d=1;d<=days;d++){String date=m+"-"+String.format(Locale.US,"%02d",d);s.append("Date: ").append(date).append("\nItem Code | Item Name | UoM | Opening | Receive | Use | Closing | Status\n");for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=r.getString("code");double o=opening(date,code),rec=receive(date,code),u=use(date,code),c=o+rec-u;s.append(code).append(" | ").append(r.optString("name")).append(" | ").append(r.optString("uom","KG")).append(" | ").append(fmt(o)).append(" | ").append(fmt(rec)).append(" | ").append(fmt(u)).append(" | ").append(fmt(c)).append(" | ").append(dailyStatus(c)).append("\n");}s.append("\n");}sharePdf(s.toString(),"Daily-Report-"+m);}catch(Exception e){error(e);}}
+ private void reportMonthly(String m){try{ArrayList<String[]> rows=new ArrayList<>();for(JSONObject r:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=r.getString("code");double o=opening(m+"-01",code),rec=monthlyReceive(m,code),u=monthlyUse(m,code),cl=o+rec-u;rows.add(new String[]{code,r.optString("name"),r.optString("uom","KG"),fmt(o),fmt(rec),fmt(u),fmt(cl),dailyStatus(cl)});}createLandscapeTablePdf("RM STOCK - FINAL MONTHLY USAGE","Month: "+m,new String[]{"Item Code","Item Name","UoM","Opening Balance","Total Receive","Total Use","Closing Balance","Status"},rows,"Monthly-"+m);}catch(Exception e){error(e);}}
+ private void createLandscapeTablePdf(String heading,String subheading,String[] headers,List<String[]> rows,String filename)throws Exception{PdfDocument doc=new PdfDocument();Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);paint.setColor(Color.BLACK);paint.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));final int pageW=842,pageH=595;final float left=20,right=20;float[] weights={1.0f,2.2f,.65f,1.0f,1.0f,.8f,1.15f,1.25f};float total=0;for(float w:weights)total+=w;float[] widths=new float[weights.length];for(int i=0;i<weights.length;i++)widths[i]=(pageW-left-right)*weights[i]/total;int pageNo=0;PdfDocument.Page page=null;Canvas canvas=null;float y=0;for(int index=-1;index<rows.size();index++){boolean headerRow=index==-1;if(page==null||y>pageH-45){if(page!=null){paint.setTextSize(8);canvas.drawText("Page "+pageNo,pageW-60,pageH-15,paint);doc.finishPage(page);}pageNo++;page=doc.startPage(new PdfDocument.PageInfo.Builder(pageW,pageH,pageNo).create());canvas=page.getCanvas();paint.setTextSize(13);paint.setTypeface(Typeface.DEFAULT_BOLD);canvas.drawText(db.setting("company","RM Stock"),left,20,paint);canvas.drawText(heading,left,38,paint);paint.setTextSize(10);paint.setTypeface(Typeface.DEFAULT);canvas.drawText(subheading,left,53,paint);y=72;paint.setTextSize(8);paint.setTypeface(Typeface.DEFAULT_BOLD);float x=left;for(int i=0;i<headers.length;i++){canvas.drawText(headers[i],x+2,y,paint);x+=widths[i];}y+=7;canvas.drawLine(left,y,pageW-right,y,paint);y+=15;}if(headerRow)continue;String[] cells=rows.get(index);paint.setTextSize(8);paint.setTypeface(Typeface.DEFAULT);float x=left;for(int i=0;i<cells.length;i++){String value=cells[i]==null?"":cells[i];float maxW=widths[i]-5;while(value.length()>1&&paint.measureText(value)>maxW)value=value.substring(0,value.length()-1);canvas.drawText(value,x+2,y,paint);x+=widths[i];}canvas.drawLine(left,y+4,pageW-right,y+4,paint);y+=17;}if(page!=null){paint.setTextSize(8);canvas.drawText("Page "+pageNo,pageW-60,pageH-15,paint);doc.finishPage(page);}File dir=new File(getFilesDir(),"reports");if(!dir.exists()&&!dir.mkdirs())throw new IOException("Cannot create report directory");File f=new File(dir,filename+".pdf");try(FileOutputStream out=new FileOutputStream(f)){doc.writeTo(out);}finally{doc.close();}shareExistingPdf(f);}
+ private void reportReceive(String m){reportDaywiseLandscape(m,true);}
  private double receive(String d,String c)throws Exception{JSONObject x=db.one("SELECT COALESCE(SUM(qty),0) v FROM receives WHERE date=? AND rm_code=?",new String[]{d,c});return x==null?0:x.getDouble("v");}
  private double use(String d,String rm)throws Exception{JSONObject x=db.one("SELECT COALESCE(SUM(consumption),0) v FROM mixing2_batch_log WHERE date=? AND rm_code=?",new String[]{d,rm});return x==null?0:x.getDouble("v");}
  private double monthlyReceive(String m,String c)throws Exception{JSONObject x=db.one("SELECT COALESCE(SUM(qty),0) v FROM receives WHERE date LIKE ? AND rm_code=?",new String[]{m+"-%",c});return x==null?0:x.getDouble("v");}
  private double monthlyUse(String m,String c)throws Exception{Calendar cal=Calendar.getInstance();cal.set(Integer.parseInt(m.substring(0,4)),Integer.parseInt(m.substring(5,7))-1,1);int days=cal.getActualMaximum(Calendar.DAY_OF_MONTH);double s=0;for(int i=1;i<=days;i++)s+=use(m+"-"+String.format(Locale.US,"%02d",i),c);return s;}
- private double opening(String d,String c)throws Exception{if(d.endsWith("-01")){JSONObject x=db.one("SELECT opening FROM rms WHERE code=?",new String[]{c});return x==null?0:x.getDouble("opening");}Calendar cal=Calendar.getInstance();cal.set(Integer.parseInt(d.substring(0,4)),Integer.parseInt(d.substring(5,7))-1,Integer.parseInt(d.substring(8)));cal.add(Calendar.DATE,-1);String prev=new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(cal.getTime());return opening(prev,c)+receive(prev,c)-use(prev,c);}
+ private double opening(String d,String c)throws Exception{
+  // Opening is the base/master opening plus every dated movement strictly before this day.
+  // This naturally carries closing stock across month/year boundaries instead of resetting on day 1.
+  JSONObject base=db.one("SELECT opening FROM rms WHERE code=?",new String[]{c});
+  double initial=base==null?0:base.optDouble("opening");
+  JSONObject rec=db.one("SELECT COALESCE(SUM(qty),0) v FROM receives WHERE rm_code=? AND date<?",new String[]{c,d});
+  JSONObject used=db.one("SELECT COALESCE(SUM(consumption),0) v FROM mixing2_batch_log WHERE rm_code=? AND date<?",new String[]{c,d});
+  return initial+(rec==null?0:rec.optDouble("v"))-(used==null?0:used.optDouble("v"));
+ }
  private void sharePdf(String text,String name)throws Exception{File f=createPdf(text,name);Uri u=FileProvider.getUriForFile(this,"com.rmstock.nativeapp.fileprovider",f);new AlertDialog.Builder(this).setTitle("Report ready").setItems(new String[]{"Save PDF","Share PDF","Print PDF"},(d,w)->{if(w==0){pendingPdf=f;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.setType("application/pdf");i.putExtra(Intent.EXTRA_TITLE,f.getName());startActivityForResult(i,79);}else if(w==1){Intent i=new Intent(Intent.ACTION_SEND);i.setType("application/pdf");i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Share PDF"));}else{printPdf(f);}}).show();}
  private File createPdf(String text,String name)throws Exception{PdfDocument doc=new PdfDocument();Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setTextSize(10*getResources().getDisplayMetrics().scaledDensity);p.setTypeface(Typeface.create("sans-serif",Typeface.NORMAL));ArrayList<String> lines=new ArrayList<>();for(String raw:text.split("\n")){if(raw.length()<=78)lines.add(raw);else{for(int i=0;i<raw.length();i+=78)lines.add(raw.substring(i,Math.min(raw.length(),i+78)));}}int page=1,y=42;PdfDocument.Page pg=null;Canvas c=null;for(String line:lines){if(pg==null||y>790){if(pg!=null){p.setTextSize(8*getResources().getDisplayMetrics().scaledDensity);c.drawText("Page "+(page-1),520,820,p);doc.finishPage(pg);}pg=doc.startPage(new PdfDocument.PageInfo.Builder(595,842,page++).create());c=pg.getCanvas();p.setTextSize(11*getResources().getDisplayMetrics().scaledDensity);c.drawText(db.setting("company","RM Stock"),24,24,p);p.setTextSize(10*getResources().getDisplayMetrics().scaledDensity);y=42;}c.drawText(line,24,y,p);y+=16;}if(pg!=null){p.setTextSize(8*getResources().getDisplayMetrics().scaledDensity);c.drawText("Page "+(page-1),520,820,p);doc.finishPage(pg);}File dir=new File(getFilesDir(),"reports");dir.mkdirs();File f=new File(dir,name+".pdf");FileOutputStream o=new FileOutputStream(f);doc.writeTo(o);o.close();doc.close();return f;}
  private void printPdf(File f){PrintManager pm=(PrintManager)getSystemService(PRINT_SERVICE);pm.print(f.getName(),new PrintAdapter(this,f),null);}
@@ -342,8 +377,59 @@ for(int i=0;i<content.getChildCount();i++){
    add(save);
   }catch(Exception e){error(e);}
  }
+ private void exportMonthlyCsv(String month){try{StringBuilder s=new StringBuilder("Item Code,Item Name,UoM,Opening Balance,Total Receive,Total Use,Closing Balance,Status\r\n");for(JSONObject rm:db.rows("SELECT * FROM rms ORDER BY CAST(code AS INTEGER)",null)){String code=rm.getString("code");double o=opening(month+"-01",code),rec=monthlyReceive(month,code),u=monthlyUse(month,code),cl=o+rec-u;s.append(csvCell(code)).append(',').append(csvCell(rm.optString("name"))).append(',').append(csvCell(rm.optString("uom","KG"))).append(',').append(fmt(o)).append(',').append(fmt(rec)).append(',').append(fmt(u)).append(',').append(fmt(cl)).append(',').append(csvCell(cl<0?"LOW/NEGATIVE":cl==0?"ZERO":"OK")).append("\r\n");}shareCsv(s.toString(),"Final-Monthly-Usage-"+month+".csv");}catch(Exception e){error(e);}}
+ private String csvCell(String v){return "\""+String.valueOf(v).replace("\"","\"\"")+"\"";}
+ private void shareCsv(String data,String name){try{File f=new File(getCacheDir(),name);try(FileOutputStream out=new FileOutputStream(f)){out.write(("\uFEFF"+data).getBytes("UTF-8"));}pendingPdf=f;Uri u=FileProvider.getUriForFile(this,"com.rmstock.nativeapp.fileprovider",f);new AlertDialog.Builder(this).setTitle("Spreadsheet export ready").setItems(new String[]{"Save CSV (opens in Excel)","Share CSV"},(d,w)->{if(w==0){Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.setType("text/csv");i.putExtra(Intent.EXTRA_TITLE,name);startActivityForResult(i,82);}else{Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/csv");i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Share spreadsheet"));}}).show();}catch(Exception e){error(e);}}
+ private void reportDaywiseLandscape(String month,boolean receiveSheet){
+  try{
+   int days=daysInMonth(month);
+   List<JSONObject> rms=db.rows("SELECT code,name FROM rms ORDER BY CAST(code AS INTEGER)",null);
+   PdfDocument doc=new PdfDocument();
+   Paint p=new Paint(Paint.ANTI_ALIAS_FLAG); p.setColor(Color.BLACK);
+   final float left=18f, labelW=174f, totalW=42f, right=18f;
+   final float dayW=(842f-left-labelW-totalW-right)/days;
+   int page=1; PdfDocument.Page pg=null; Canvas c=null; float y=0;
+   for(int ri=0;ri<rms.size();ri++){
+    if(pg==null || y>555f){
+     if(pg!=null){p.setTextSize(8f);c.drawText("Page "+(page-1),790,580,p);doc.finishPage(pg);}
+     pg=doc.startPage(new PdfDocument.PageInfo.Builder(842,595,page++).create()); c=pg.getCanvas();
+     p.setTextSize(12f); c.drawText(db.setting("company","RM Stock"),left,22,p);
+     p.setTextSize(10f); c.drawText((receiveSheet?"RM Receive Monthly — Day-wise":"RM Mixing-2 Monthly — Day-wise")+" | "+month,left,40,p);
+     p.setTextSize(7f); c.drawText("RM Code / Name",left,61,p);
+     for(int d=1;d<=days;d++){
+      String day=String.valueOf(d); float x=left+labelW+(d-1)*dayW;
+      c.drawText(day,x+Math.max(0,(dayW-p.measureText(day))/2f),61,p);
+     }
+     c.drawText("Total",left+labelW+days*dayW+2,61,p);
+     p.setStrokeWidth(.5f); c.drawLine(left,67,842-right,67,p);
+     y=82;
+    }
+    JSONObject rm=rms.get(ri); String code=rm.optString("code");
+    String label=code+" - "+rm.optString("name");
+    p.setTextSize(7f);
+    // Keep both item code and name visible; shrink text to fit the fixed label column.
+    while(label.length()>1 && p.measureText(label)>labelW-5) { p.setTextSize(Math.max(5.5f,p.getTextSize()-.25f)); if(p.getTextSize()<=5.5f) break; }
+    if(p.measureText(label)>labelW-5){while(label.length()>1&&p.measureText(label+"…")>labelW-5)label=label.substring(0,label.length()-1);label+="…";}
+    c.drawText(label,left,y,p); p.setTextSize(5.5f); double total=0;
+    for(int d=1;d<=days;d++){
+     String date=month+"-"+String.format(Locale.US,"%02d",d);
+     double q=receiveSheet?receive(date,code):use(date,code); total+=q;
+     String value=fmt(q); float x=left+labelW+(d-1)*dayW;
+     float tx=x+Math.max(0,(dayW-p.measureText(value))/2f);
+     c.drawText(value,tx,y,p);
+    }
+    String totalText=fmt(total); c.drawText(totalText,left+labelW+days*dayW+2,y,p);
+    y+=14f;
+   }
+   if(pg!=null){p.setTextSize(8f);c.drawText("Page "+(page-1),790,580,p);doc.finishPage(pg);}
+   File dir=new File(getFilesDir(),"reports");dir.mkdirs();
+   File f=new File(dir,(receiveSheet?"Receive-Daywise-":"Mixing2-Daywise-")+month+".pdf");
+   try(FileOutputStream out=new FileOutputStream(f)){doc.writeTo(out);} doc.close(); shareExistingPdf(f);
+  }catch(Exception e){error(e);}
+ }
+ private void shareExistingPdf(File f)throws Exception{Uri u=FileProvider.getUriForFile(this,"com.rmstock.nativeapp.fileprovider",f);new AlertDialog.Builder(this).setTitle("Report ready").setItems(new String[]{"Save PDF","Share PDF","Print PDF"},(d,w)->{if(w==0){pendingPdf=f;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.setType("application/pdf");i.putExtra(Intent.EXTRA_TITLE,f.getName());startActivityForResult(i,79);}else if(w==1){Intent i=new Intent(Intent.ACTION_SEND);i.setType("application/pdf");i.putExtra(Intent.EXTRA_STREAM,u);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(i,"Share PDF"));}else printPdf(f);}).show();}
  private void reportBatchLog(String month){try{StringBuilder s=new StringBuilder("RM MIXING-2 BATCH LOG\nMonth: ").append(month).append("\n\nDate | Product | Shift | Batches | RM Code | Recipe Qty | Consumption\n");for(JSONObject x:db.rows("SELECT l.date,l.product_code,l.shift,l.batch_count,l.rm_code,l.recipe_qty,l.consumption,p.name FROM mixing2_batch_log l LEFT JOIN products p ON p.code=l.product_code WHERE l.date LIKE ? ORDER BY l.date,l.product_code,l.shift,l.rm_code",new String[]{month+"-%"})){s.append(x.getString("date")).append(" | ").append(x.optString("name",x.getString("product_code"))).append(" | Shift ").append(x.getString("shift")).append(" | ").append(batchCountText(x.getDouble("batch_count"))).append(" | ").append(x.getString("rm_code")).append(" | ").append(fmt(x.getDouble("recipe_qty"))).append(" | ").append(fmt(x.getDouble("consumption"))).append("\n");}sharePdf(s.toString(),"Mixing2-Batch-Log-"+month);}catch(Exception e){error(e);}}
- private void reportMixingMonthly(String month){try{Calendar cal=Calendar.getInstance();cal.set(Integer.parseInt(month.substring(0,4)),Integer.parseInt(month.substring(5,7))-1,1);int days=cal.getActualMaximum(Calendar.DAY_OF_MONTH);StringBuilder s=new StringBuilder("MIXING-2 USE — MONTHLY DAY-WISE\nMonth: ").append(month).append("\n\nRM Code | RM Name | ");for(int d=1;d<=days;d++)s.append(d).append(d<days?" | ":"\n");for(JSONObject rm:db.rows("SELECT code,name FROM rms ORDER BY CAST(code AS INTEGER)",null)){s.append(rm.getString("code")).append(" | ").append(rm.getString("name")).append(" | ");for(int d=1;d<=days;d++){String date=month+"-"+String.format(Locale.US,"%02d",d);s.append(fmt(use(date,rm.getString("code")))).append(d<days?" | ":"\n");}}sharePdf(s.toString(),"Mixing2-Monthly-"+month);}catch(Exception e){error(e);}}
+ private void reportMixingMonthly(String month){reportDaywiseLandscape(month,false);}
  private void editCompany(){EditText e=edit("Company Name");e.setText(db.setting("company","RM Stock"));new AlertDialog.Builder(this).setTitle("Company Name").setView(e).setNegativeButton("Cancel",null).setPositiveButton("Save",(d,w)->{String x=e.getText().toString().trim();if(!x.isEmpty()){db.setSetting("company",x);toast("Company name saved ✔");}}).show();}
  private void backupJson(){try{JSONObject all=new JSONObject();all.put("version",4);all.put("company",db.setting("company","RM Stock"));JSONArray tables=new JSONArray();String[] ts={"rms","products","recipes","batches","receives","approvals","custom_sheets","custom_cols","custom_rows","mixing2_batch_log","settings"};for(String t:ts){JSONObject z=new JSONObject();z.put("table",t);z.put("rows",new JSONArray());for(JSONObject r:db.rows("SELECT * FROM "+t,null))z.getJSONArray("rows").put(r);tables.put(z);}all.put("tables",tables);File f=new File(getCacheDir(),"rmstock-backup.json");try(FileOutputStream o=new FileOutputStream(f)){o.write(all.toString(2).getBytes("UTF-8"));}pendingPdf=f;Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.setType("application/json");i.putExtra(Intent.EXTRA_TITLE,"rmstock-backup.json");startActivityForResult(i,80);}catch(Exception e){error(e);}}
  private void restoreJson(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.setType("application/json");i.addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,81);}
@@ -354,7 +440,7 @@ for(int i=0;i<content.getChildCount();i++){
  private void showAI(){clear("Offline AI Agent — Voucher Draft");TextView t=new TextView(this);t.setText("Scan voucher → offline OCR → Draft → Admin review/approval → Daily Entry. AI never writes directly before approval.");add(t);Button b=btn("📷 Scan Voucher");b.setOnClickListener(v->startCamera());add(b);}
  private void startCamera(){if(ContextCompat.checkSelfPermission(this,Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED){ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.CAMERA},CAM);return;}try{File dir=new File(getCacheDir(),"images");dir.mkdirs();File f=File.createTempFile("voucher_",".jpg",dir);photoUri=FileProvider.getUriForFile(this,"com.rmstock.nativeapp.fileprovider",f);Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);i.putExtra(MediaStore.EXTRA_OUTPUT,photoUri);i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);startActivityForResult(i,PHOTO);}catch(Exception e){error(e);}}
  @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==CAM&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startCamera();}
- @Override protected void onActivityResult(int r,int c,@Nullable Intent d){super.onActivityResult(r,c,d);if(r==PHOTO&&c==RESULT_OK&&photoUri!=null)ocr(photoUri); if(r==79&&c==RESULT_OK&&d!=null&&pendingPdf!=null){try{OutputStream out=getContentResolver().openOutputStream(d.getData());FileInputStream in=new FileInputStream(pendingPdf);byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);in.close();out.close();toast("PDF saved ✔");}catch(Exception e){error(e);}} if(r==80&&c==RESULT_OK&&d!=null&&pendingPdf!=null){try{OutputStream out=getContentResolver().openOutputStream(d.getData());FileInputStream in=new FileInputStream(pendingPdf);byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);in.close();out.close();toast("Backup saved ✔");}catch(Exception e){error(e);}} if(r==81&&c==RESULT_OK&&d!=null)importBackup(d.getData());}
+ @Override protected void onActivityResult(int r,int c,@Nullable Intent d){super.onActivityResult(r,c,d);if(r==PHOTO&&c==RESULT_OK&&photoUri!=null)ocr(photoUri); if(r==79&&c==RESULT_OK&&d!=null&&pendingPdf!=null){try{OutputStream out=getContentResolver().openOutputStream(d.getData());FileInputStream in=new FileInputStream(pendingPdf);byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);in.close();out.close();toast("PDF saved ✔");}catch(Exception e){error(e);}} if(r==82&&c==RESULT_OK&&d!=null&&pendingPdf!=null){try{OutputStream out=getContentResolver().openOutputStream(d.getData());FileInputStream in=new FileInputStream(pendingPdf);byte[] z=new byte[8192];int n;while((n=in.read(z))>0)out.write(z,0,n);in.close();out.close();toast("CSV saved — open with Excel ✔");}catch(Exception e){error(e);}} if(r==80&&c==RESULT_OK&&d!=null&&pendingPdf!=null){try{OutputStream out=getContentResolver().openOutputStream(d.getData());FileInputStream in=new FileInputStream(pendingPdf);byte[] b=new byte[8192];int n;while((n=in.read(b))>0)out.write(b,0,n);in.close();out.close();toast("Backup saved ✔");}catch(Exception e){error(e);}} if(r==81&&c==RESULT_OK&&d!=null)importBackup(d.getData());}
  private void ocr(Uri u){new Thread(()->{String txt="";try{Bitmap bm=BitmapFactory.decodeStream(getContentResolver().openInputStream(u));File base=new File(getFilesDir(),"tess"),td=new File(base,"tessdata");td.mkdirs();copy("tessdata/eng.traineddata",new File(td,"eng.traineddata"));copy("tessdata/ben.traineddata",new File(td,"ben.traineddata"));TessBaseAPI api=new TessBaseAPI();if(!api.init(base.getAbsolutePath(),"eng+ben"))throw new Exception("OCR init failed");api.setImage(bm);txt=api.getUTF8Text();api.recycle();bm.recycle();}catch(Exception e){txt="OCR_ERROR: "+e.getMessage();}final String z=txt;main.post(()->showAIDraft(z));}).start();}
  private void showAIDraft(String raw){clear("AI Draft — Admin Approval");EditText date=edit("Date"),voucher=edit("Voucher No"),rm=edit("RM Code"),qty=edit("Quantity");date.setText(findDate(raw));voucher.setText(findVoucher(raw));rm.setText(findRm(raw));qty.setText(findQty(raw));add(date);add(voucher);add(rm);add(qty);TextView o=new TextView(this);o.setText("OCR text:\n"+raw);o.setPadding(0,dp(12),0,dp(12));add(o);Button approve=btn("Approve & Save to Daily Entry");approve.setOnClickListener(v->{if(!admin())return;try{String code=rm.getText().toString().trim();if(db.one("SELECT code FROM rms WHERE code=?",new String[]{code})==null)throw new Exception("RM Code not found");ContentValues x=new ContentValues();x.put("date",date.getText().toString().trim());x.put("rm_code",code);x.put("qty",num(qty.getText().toString()));x.put("note","Offline AI approved");x.put("voucher_no",voucher.getText().toString().trim());x.put("source","offline-ai");db.insert("receives",x);toast("AI Draft approved ✔");showDaily();}catch(Exception e){error(e);}});add(approve);}
  private String findDate(String s){java.util.regex.Matcher m=java.util.regex.Pattern.compile("(20\\d{2}[-/]\\d{1,2}[-/]\\d{1,2}|\\d{1,2}[-/]\\d{1,2}[-/]20\\d{2})").matcher(s);if(m.find()){String x=m.group(1).replace('/','-');String[] z=x.split("-");if(z[0].length()==4)return String.format(Locale.US,"%04d-%02d-%02d",Integer.parseInt(z[0]),Integer.parseInt(z[1]),Integer.parseInt(z[2]));return String.format(Locale.US,"%04d-%02d-%02d",Integer.parseInt(z[2]),Integer.parseInt(z[1]),Integer.parseInt(z[0]));}return today();}

@@ -67,3 +67,12 @@ Upload the **contents of this project folder** to the repository root (not the Z
 
 ### Historical Mixing-2 Batch Log
 The project keeps a native SQLite `mixing2_batch_log` snapshot for each saved Date + Product + Shift + RM combination. Correcting a batch count updates that batch log; later recipe edits do not rewrite the historical recipe quantity/consumption already recorded in the log. The normal stock-usage calculation still uses the current Batch Count × Recipe logic.
+
+## Latest requested report/UI source updates
+- Daily Date Report renders a spreadsheet-style table with item code/name, UoM, opening, receive, use, closing and status. Selected-date PDF supports Save, Share and Android Print; the full-month PDF option is also available.
+- Final Monthly Usage now renders the same spreadsheet-style columns and includes PDF/Print plus Excel-compatible UTF-8 CSV export.
+- The two monthly day-wise sheets (RM Receive and RM Mixing-2) generate landscape A4 PDF pages with repeated title/date headings and item rows.
+- The header is compact and bottom navigation is horizontally scrollable for narrow devices.
+- Stock opening is calculated from the RM master opening plus all movements strictly before the selected date, carrying balances over day/month/year boundaries.
+
+Build status: APK build could not be verified in this environment because Gradle 8.2 could not be downloaded (network DNS unavailable). This archive contains source only; build and test it in GitHub Actions/Codespaces before installing. Please keep a separate backup of your live app data before updating.
